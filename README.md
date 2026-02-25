@@ -1,7 +1,6 @@
-# FireWeb - Spring Boot Multi-Module Project
+# FireWeb - Spring Boot 3.x Gradle Multi-Module Project
 
-> 소화기 / 소화전 자산 관리, 도면 좌표 매핑, 점검 이력 관리, QR 기반 조회/점검 시스템  
-> ASP.NET Core Razor Pages (.NET 8) → **Spring Boot 3.x + Java 17 + MariaDB** 전환
+> ASP.NET Core 8.0 Razor Pages → **Spring Boot 3.2.5 + Java 17 + MariaDB** 전환 프로젝트
 
 ---
 
@@ -9,15 +8,110 @@
 
 ```
 fireweb/
-├── core/                          # Application 진입점, Security, 공통 예외처리
-├── module-user/                   # 사용자/권한 관리
-├── module-fire/                   # 소화기 / 소화전 자산 관리 (기존 FireWeb 핵심)
-├── module-sales/                  # 영업 주문 관리 (신규 업무 모듈)
+├── core/                          # 메인 애플리케이션 모듈 (Spring Boot 진입점)
+│   ├── src/main/java/com/company/core/
+│   │   ├── FireWebApplication.java          # @SpringBootApplication
+│   │   ├── common/ApiResponse.java          # 공통 API 응답 래퍼
+│   │   ├── config/
+│   │   │   ├── WebMvcConfig.java            # CORS 설정
+│   │   │   └── FileUploadProperties.java    # 업로드 경로 설정
+│   │   ├── exception/
+│   │   │   ├── GlobalExceptionHandler.java  # 전역 예외 처리 (@RestControllerAdvice)
+│   │   │   ├── BusinessException.java       # 비즈니스 예외 (400)
+│   │   │   └── ResourceNotFoundException.java  # 리소스 없음 (404)
+│   │   └── security/
+│   │       ├── SecurityConfig.java          # Spring Security 설정 (JWT Stateless)
+│   │       ├── JwtTokenProvider.java        # JWT 생성/검증
+│   │       ├── JwtAuthenticationFilter.java # JWT 인증 필터
+│   │       ├── JwtAuthenticationEntryPoint.java  # 401 JSON 응답
+│   │       └── JwtProperties.java           # JWT 설정 바인딩
+│   └── src/main/resources/
+│       └── application.yml                  # MariaDB, JPA, 로그 설정
+│
+├── module-user/                   # 사용자/인증 모듈
+│   └── src/main/java/com/company/module/user/
+│       ├── controller/UserController.java   # /api/auth/**, /api/admin/users/**
+│       ├── service/UserService.java         # @Transactional (Service only)
+│       ├── repository/WebUserRepository.java
+│       ├── entity/WebUser.java              # web_user 테이블
+│       └── dto/                             # LoginRequest/Response, UserCreateRequest 등
+│
+├── module-fire/                   # 소화기/소화전 자산 관리 모듈
+│   └── src/main/java/com/company/module/fire/
+│       ├── controller/
+│       │   ├── ExtinguisherController.java  # /fire-api/extinguishers/**
+│       │   └── FireHydrantController.java   # /fire-api/hydrants/**
+│       ├── service/
+│       │   ├── ExtinguisherService.java     # @Transactional (Service only)
+│       │   └── FireHydrantService.java
+│       ├── repository/                      # JpaRepository (countQuery 분리 적용)
+│       ├── entity/                          # Building, Floor, Zone, Extinguisher 등
+│       └── dto/                             # ExtinguisherResponse, FireHydrantResponse 등
+│
+├── module-sales/                  # 영업/매출 관리 모듈 (신규)
+│   └── src/main/java/com/company/module/sales/
+│       ├── controller/SalesOrderController.java  # /sales-api/orders/**
+│       ├── service/SalesOrderService.java         # @Transactional (Service only)
+│       ├── repository/                            # countQuery 분리 적용
+│       ├── entity/                                # SalesOrder (MOD_SALES_ORDER), SalesOrderLine
+│       └── dto/
+│
 ├── sql/
-│   └── 01_schema.sql              # MariaDB DDL 스크립트 (JPA ddl-auto: none)
-├── build.gradle                   # 루트 빌드 설정
-└── settings.gradle                # 멀티 모듈 정의
+│   ├── 01_schema.sql              # 전체 통합 DDL (권장 사용)
+│   ├── 02_ddl_core.sql            # core (web_user) DDL
+│   ├── 03_ddl_fire.sql            # fire 도메인 DDL
+│   ├── 04_ddl_sales.sql           # sales 도메인 DDL (MOD_SALES_*)
+│   └── 05_seed_data.sql           # 기초/샘플 데이터
+│
+├── gradle/wrapper/
+│   ├── gradle-wrapper.jar
+│   └── gradle-wrapper.properties  # Gradle 8.7
+├── gradlew                        # Unix 실행 스크립트
+├── gradlew.bat                    # Windows 실행 스크립트
+├── settings.gradle                # 멀티 모듈 선언
+└── build.gradle                   # 루트 공통 설정 (Java 17, Spring Boot 3.2.5 BOM)
 ```
+
+---
+
+## API 엔드포인트 요약
+
+### 인증 (`module-user`)
+| Method | URL | 설명 | 인가 |
+|--------|-----|------|------|
+| POST | `/api/auth/login` | 로그인 → JWT 발급 | 공개 |
+| POST | `/api/auth/change-password` | 비밀번호 변경 | 인증 |
+| GET | `/api/admin/users` | 전체 사용자 목록 | ADMIN |
+| POST | `/api/admin/users` | 사용자 등록 | ADMIN |
+| DELETE | `/api/admin/users/{id}` | 사용자 비활성화 | ADMIN |
+
+### 소화기 (`module-fire`)
+| Method | URL | 설명 | 인가 |
+|--------|-----|------|------|
+| GET | `/fire-api/extinguishers` | 목록 조회 (페이징/검색) | 인증 |
+| GET | `/fire-api/extinguishers/{id}` | 상세 조회 (점검이력 포함) | 인증 |
+| POST | `/fire-api/extinguishers` | 등록/수정 | ADMIN |
+| POST | `/fire-api/extinguishers/inspect` | 점검 등록 | 인증 |
+| DELETE | `/fire-api/extinguishers/{id}` | 삭제 | ADMIN |
+
+### 소화전 (`module-fire`)
+| Method | URL | 설명 | 인가 |
+|--------|-----|------|------|
+| GET | `/fire-api/hydrants` | 목록 조회 (페이징/검색) | 인증 |
+| GET | `/fire-api/hydrants/{id}` | 상세 조회 (점검이력 포함) | 인증 |
+| POST | `/fire-api/hydrants` | 등록/수정 | ADMIN |
+| POST | `/fire-api/hydrants/{id}/inspect` | 점검 등록 | 인증 |
+| DELETE | `/fire-api/hydrants/{id}` | 삭제 | ADMIN |
+
+### 영업 주문 (`module-sales`)
+| Method | URL | 설명 | 인가 |
+|--------|-----|------|------|
+| GET | `/sales-api/orders` | 목록 조회 (페이징/검색/필터) | 인증 |
+| GET | `/sales-api/orders/{id}` | 상세 조회 (주문 라인 포함) | 인증 |
+| POST | `/sales-api/orders` | 등록/수정 | 인증 |
+| POST | `/sales-api/orders/{id}/confirm` | 주문 확정 (DRAFT→CONFIRMED) | 인증 |
+| POST | `/sales-api/orders/{id}/cancel` | 주문 취소 | 인증 |
+| DELETE | `/sales-api/orders/{id}` | 주문 삭제 (DRAFT만) | ADMIN |
 
 ---
 
@@ -25,156 +119,73 @@ fireweb/
 
 | 항목 | 내용 |
 |------|------|
-| Language | Java 17 |
-| Framework | Spring Boot 3.2.5 |
-| Build | Gradle Multi-Module |
-| Security | Spring Security + JWT (Bearer) |
-| ORM | Spring Data JPA (ddl-auto: **none**) |
-| DB | MariaDB |
-| Logging | Logback (Spring Boot 기본) |
-| Base Package | `com.company` |
+| Java | 17 |
+| Spring Boot | 3.2.5 |
+| Build | Gradle 8.7 (Multi-Module) |
+| DB | MariaDB (JPA `ddl-auto: none`, 수동 DDL) |
+| 인증 | JWT (JJWT 0.12.6) Bearer Token |
+| 비밀번호 | BCrypt (Spring Security) |
+| ORM | Spring Data JPA + Hibernate |
+| 검증 | Jakarta Validation (`@Valid`) |
 
 ---
 
-## 모듈 구성
+## 데이터베이스 테이블
 
-### `core`
-- **역할**: Spring Boot Application 진입점, 전역 설정
-- **주요 클래스**:
-  - `FireWebApplication` — `@SpringBootApplication` 진입점
-  - `SecurityConfig` — JWT Stateless 인증, Role 기반 인가
-  - `JwtTokenProvider` — JWT 생성/검증
-  - `JwtAuthenticationFilter` — Bearer 토큰 필터
-  - `GlobalExceptionHandler` — 전역 예외 → `ApiResponse` 통일
-  - `ApiResponse<T>` — 공통 응답 포맷 `{ ok, message, data }`
-- **수정 금지** (업무 모듈에서 Core 소스 직접 수정 불가)
-
-### `module-user`
-- **패키지**: `com.company.module.user`
-- **테이블**: `web_user`
-- **기능**: 로그인(JWT 발급), 비밀번호 변경, 사용자 관리(Admin)
-- **주요 API**:
-  | Method | URL | 설명 |
-  |--------|-----|------|
-  | POST | `/api/auth/login` | 로그인 → JWT 토큰 발급 |
-  | POST | `/api/auth/change-password` | 비밀번호 변경 |
-  | GET | `/api/admin/users` | 전체 사용자 목록 (Admin) |
-  | POST | `/api/admin/users` | 사용자 등록 (Admin) |
-  | DELETE | `/api/admin/users/{id}` | 사용자 비활성화 (Admin) |
-
-### `module-fire`
-- **패키지**: `com.company.module.fire`
-- **테이블**: `building`, `floor`, `zone`, `extinguisher_group`, `extinguisher`, `extinguisher_inspection`, `fire_hydrant`, `fire_hydrant_inspection`
-- **기능**: 소화기/소화전 자산 관리, 점검 이력(최근 12건 유지), 도면 좌표 매핑
-- **주요 API**:
-  | Method | URL | 설명 |
-  |--------|-----|------|
-  | GET | `/fire-api/extinguishers` | 소화기 목록 (검색/필터/페이징) |
-  | GET | `/fire-api/extinguishers/{id}` | 소화기 상세 + 점검 이력 |
-  | POST | `/fire-api/extinguishers` | 소화기 등록/수정 (Admin) |
-  | POST | `/fire-api/extinguishers/inspect` | 소화기 점검 등록 |
-  | DELETE | `/fire-api/extinguishers/{id}` | 소화기 삭제 (Admin) |
-  | GET | `/fire-api/hydrants` | 소화전 목록 |
-  | GET | `/fire-api/hydrants/{id}` | 소화전 상세 + 점검 이력 |
-  | POST | `/fire-api/hydrants` | 소화전 등록/수정 (Admin) |
-  | POST | `/fire-api/hydrants/{id}/inspect` | 소화전 점검 등록 |
-  | DELETE | `/fire-api/hydrants/{id}` | 소화전 삭제 (Admin) |
-
-### `module-sales` _(신규)_
-- **패키지**: `com.company.module.sales`
-- **테이블 Prefix**: `MOD_SALES_`
-- **테이블**: `MOD_SALES_ORDER`, `MOD_SALES_ORDER_LINE`
-- **기능**: 영업 주문 관리 (등록/확정/취소/삭제)
-- **주요 API**:
-  | Method | URL | 설명 |
-  |--------|-----|------|
-  | GET | `/sales-api/orders` | 주문 목록 (검색/필터/페이징) |
-  | GET | `/sales-api/orders/{id}` | 주문 상세 + 주문 라인 |
-  | POST | `/sales-api/orders` | 주문 등록/수정 |
-  | POST | `/sales-api/orders/{id}/confirm` | 주문 확정 |
-  | POST | `/sales-api/orders/{id}/cancel` | 주문 취소 |
-  | DELETE | `/sales-api/orders/{id}` | 주문 삭제 (Admin, DRAFT 상태만) |
+| 테이블 | 모듈 | 설명 |
+|--------|------|------|
+| `web_user` | core/user | 사용자 계정 (BCrypt) |
+| `building` | fire | 건물 마스터 |
+| `floor` | fire | 층 마스터 |
+| `zone` | fire | 구역 마스터 |
+| `extinguisher_group` | fire | 소화기 위치 그룹 |
+| `extinguisher` | fire | 소화기 자산 |
+| `extinguisher_inspection` | fire | 소화기 점검 이력 |
+| `fire_hydrant` | fire | 소화전 자산 |
+| `fire_hydrant_inspection` | fire | 소화전 점검 이력 |
+| `MOD_SALES_ORDER` | sales | 영업 주문 |
+| `MOD_SALES_ORDER_LINE` | sales | 영업 주문 상세 라인 |
 
 ---
 
-## 신규 모듈 추가 가이드 (`module-sales` 패턴 따라하기)
+## 빠른 시작
 
-1. `settings.gradle`에 `include 'module-xxx'` 추가
-2. `module-xxx/build.gradle` 생성 (bootJar=false, jar=true)
-3. `core/build.gradle`에 `implementation project(':module-xxx')` 추가
-4. 패키지 네임스페이스: `com.company.module.xxx`
-5. URL Prefix: 도메인에 맞는 prefix 사용 (예: `/xxx-api/**`)
-6. DB Table Prefix: 협의된 prefix 사용 (예: `MOD_XXX_`)
-7. **Core 소스 절대 수정 금지** — Security, 예외처리 등 Core 제공 Bean 그대로 활용
-8. `@Transactional`은 **Service 계층에서만** 사용
-
----
-
-## 데이터베이스 설정
-
-### DDL 실행
+### 1. DB 스키마 적용
 ```bash
-# MariaDB에 접속 후 DDL 실행
 mysql -u root -p < sql/01_schema.sql
 ```
 
-### application.yml 설정
+### 2. 설정 수정
+`core/src/main/resources/application.yml`:
 ```yaml
 spring:
   datasource:
-    url: jdbc:mariadb://localhost:3306/fireweb?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
+    url: jdbc:mariadb://localhost:3306/fireweb?...
     username: fireweb
     password: fireweb1234
-  jpa:
-    hibernate:
-      ddl-auto: none   # ← 반드시 none 유지
+security:
+  jwt:
+    secret: ${JWT_SECRET:your-secret-key}
 ```
 
-### 환경변수 (운영 시 반드시 설정)
+### 3. 빌드 및 실행
 ```bash
-export JWT_SECRET=your-production-secret-key-256bit
-export UPLOAD_BASE_PATH=/data/fireweb/uploads
-```
-
----
-
-## 빌드 & 실행
-
-```bash
-# 전체 빌드
-./gradlew build
-
-# core 모듈 실행 (모든 업무 모듈 포함)
 ./gradlew :core:bootRun
-
-# 특정 모듈 테스트
-./gradlew :module-sales:test
+# 또는
+./gradlew :core:bootJar
+java -jar core/build/libs/fireweb-1.0.0.jar
 ```
 
 ---
 
-## 기존 ASP.NET → Spring Boot 전환 매핑
+## 수정 이력
 
-| ASP.NET | Spring Boot |
-|---------|-------------|
-| Cookie 인증 | JWT Bearer 토큰 |
-| PBKDF2-SHA256 | BCrypt |
-| Razor Pages | REST API (Controller) |
-| `FireDbContext` (SQL Server) | Spring Data JPA (MariaDB) |
-| `Serilog` 롤링 파일 | Logback (`logs/fireweb.log`) |
-| `Program.cs` | `FireWebApplication.java` + `SecurityConfig.java` |
-| `[Authorize(Roles="Admin")]` | `@PreAuthorize("hasRole('ADMIN')")` |
-| Anti-forgery | JWT Stateless (CSRF 미적용) |
+| 버전 | 내용 |
+|------|------|
+| v1.1.0 | **버그 수정**: boolean 필드명 충돌(`isActive`→`active`) 수정, JPQL countQuery 분리, gradlew 추가 |
+| v1.0.0 | ASP.NET Core → Spring Boot 3.x 최초 전환 (core + module-user + module-fire + module-sales) |
 
 ---
 
-## 주의사항
-
-- **Core 소스 수정 금지**: 모든 업무 모듈은 Core가 제공하는 `SecurityConfig`, `GlobalExceptionHandler`, `ApiResponse`를 그대로 사용
-- **JPA ddl-auto: none**: 스키마 변경 시 반드시 `sql/` 하위에 DDL을 작성하고 직접 실행
-- **@Transactional**: Service 계층에서만 사용 (Controller, Repository 적용 금지)
-- **JWT Secret**: 운영 환경에서 반드시 환경변수 `JWT_SECRET`으로 재정의
-
----
-
-_Last Updated: 2026-02-25_
+## GitHub
+- **Repository**: https://github.com/kleannara-ax/Fire_Web_Project

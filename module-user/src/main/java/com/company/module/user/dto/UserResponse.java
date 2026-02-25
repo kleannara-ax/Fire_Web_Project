@@ -23,7 +23,7 @@ public class UserResponse {
         this.username = user.getUsername();
         this.displayName = user.getDisplayName();
         this.role = user.getRole();
-        this.isActive = user.isActive();
+        this.isActive = user.isActive();  // WebUser.isActive() 호환 메서드 사용
         this.createdAt = user.getCreatedAt();
     }
 }

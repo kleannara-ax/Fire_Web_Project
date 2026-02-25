@@ -17,6 +17,10 @@ import java.time.LocalDateTime;
  * - Role: ADMIN / USER (Spring Security ROLE_ prefix는 SecurityConfig에서 처리)
  *
  * 테이블명: web_user
+ *
+ * NOTE: boolean 필드명을 'active'로 선언하여 Lombok @Getter 가 getActive() 대신
+ *       isActive() 를 생성하는 충돌을 방지한다.
+ *       JPA Column 매핑은 @Column(name="is_active")으로 DB 컬럼명을 명시한다.
  */
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -48,9 +52,13 @@ public class WebUser {
     @Column(name = "role", nullable = false, length = 20)
     private String role;
 
-    /** 계정 활성 여부 */
+    /**
+     * 계정 활성 여부
+     * NOTE: 필드명을 'active'로 선언 → Lombok이 isActive()가 아닌 isActive()를 생성하는
+     *       이중 충돌 방지. DB 컬럼은 @Column(name="is_active") 으로 명시 매핑.
+     */
     @Column(name = "is_active", nullable = false)
-    private boolean isActive = true;
+    private boolean active = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -67,7 +75,16 @@ public class WebUser {
         this.displayName = displayName;
         this.passwordHash = passwordHash;
         this.role = role;
-        this.isActive = isActive;
+        this.active = isActive;
+    }
+
+    // ===== 편의 메서드 (기존 코드 호환) =====
+
+    /**
+     * isActive() 호환 메서드 - 기존 코드에서 isActive() 를 호출하는 경우 대응
+     */
+    public boolean isActive() {
+        return this.active;
     }
 
     // ===== 비즈니스 메서드 =====
@@ -81,11 +98,11 @@ public class WebUser {
     }
 
     public void deactivate() {
-        this.isActive = false;
+        this.active = false;
     }
 
     public void activate() {
-        this.isActive = true;
+        this.active = true;
     }
 
     public void changeRole(String role) {

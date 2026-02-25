@@ -51,3 +51,7 @@ uploads/
 # 컴파일 결과
 *.class
 target/
+
+# package-lock (npm 불필요 파일)
+package-lock.json
+package.json
