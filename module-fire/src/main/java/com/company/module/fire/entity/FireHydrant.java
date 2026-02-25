@@ -1,0 +1,127 @@
+package com.company.module.fire.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * 소화전 엔티티
+ * <p>
+ * 기존 ASP.NET: FireHydrant
+ * - HydrantType: Indoor(옥내) / Outdoor(옥외)
+ * - OperationType: Auto(자동) / Manual(수동)
+ * - 옥내: BuildingId/FloorId/X/Y 사용
+ * - 옥외: LocationDescription 사용 (BuildingId=99)
+ *
+ * 테이블명: fire_hydrant
+ */
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Entity
+@Table(name = "fire_hydrant")
+public class FireHydrant {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "hydrant_id")
+    private Long hydrantId;
+
+    /** QR용 일련번호 (HYD-000001 형식) */
+    @Column(name = "serial_number", nullable = false, unique = true, length = 50)
+    private String serialNumber;
+
+    /** 소화전 타입: Indoor / Outdoor */
+    @Column(name = "hydrant_type", nullable = false, length = 20)
+    private String hydrantType;
+
+    /** 작동 방식: Auto / Manual */
+    @Column(name = "operation_type", nullable = false, length = 20)
+    private String operationType;
+
+    /** 건물 (옥외인 경우 id=99 사용) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "building_id")
+    private Building building;
+
+    /** 층 (옥외인 경우 floor_id=1 사용) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "floor_id")
+    private Floor floor;
+
+    /** 도면 X 좌표 (소수점 2자리) */
+    @Column(name = "x", precision = 5, scale = 2)
+    private BigDecimal x;
+
+    /** 도면 Y 좌표 (소수점 2자리) */
+    @Column(name = "y", precision = 5, scale = 2)
+    private BigDecimal y;
+
+    /** 위치 설명 (옥외 소화전) */
+    @Column(name = "location_description", length = 200)
+    private String locationDescription;
+
+    /** 소화전 이미지 경로 */
+    @Column(name = "image_path", length = 600)
+    private String imagePath;
+
+    /** 활성 여부 */
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = true;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    /** 점검 이력 (1:N, Cascade Delete) */
+    @OneToMany(mappedBy = "hydrant", fetch = FetchType.LAZY,
+               cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @OrderBy("inspectionDate DESC, inspectionId DESC")
+    private List<FireHydrantInspection> inspections = new ArrayList<>();
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @Builder
+    public FireHydrant(String serialNumber, String hydrantType, String operationType,
+                       Building building, Floor floor, BigDecimal x, BigDecimal y,
+                       String locationDescription, String imagePath, boolean isActive) {
+        this.serialNumber = serialNumber;
+        this.hydrantType = hydrantType;
+        this.operationType = operationType;
+        this.building = building;
+        this.floor = floor;
+        this.x = x;
+        this.y = y;
+        this.locationDescription = locationDescription;
+        this.imagePath = imagePath;
+        this.isActive = isActive;
+    }
+
+    // ===== 비즈니스 메서드 =====
+
+    public void update(String operationType, Building building, Floor floor,
+                       BigDecimal x, BigDecimal y, String locationDescription) {
+        this.operationType = operationType;
+        this.building = building;
+        this.floor = floor;
+        this.x = x;
+        this.y = y;
+        this.locationDescription = locationDescription;
+    }
+
+    public void updateImagePath(String imagePath) {
+        this.imagePath = imagePath;
+    }
+
+    public boolean isOutdoor() {
+        return "Outdoor".equalsIgnoreCase(this.hydrantType);
+    }
+}

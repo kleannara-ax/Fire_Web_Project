@@ -1,0 +1,19 @@
+// module-sales: 영업/매출 관리 신규 업무 모듈
+// - URL Prefix: /sales-api/**
+// - DB Table Prefix: MOD_SALES_
+// - 패키지: com.company.module.sales
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+}
+
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = true
+}

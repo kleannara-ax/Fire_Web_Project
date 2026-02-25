@@ -1,0 +1,16 @@
+// module-fire: 소화기/소화전 자산 관리 모듈
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+}
+
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = true
+}
