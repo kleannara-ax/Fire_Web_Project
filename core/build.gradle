@@ -3,11 +3,22 @@ plugins {
 }
 
 // core 모듈: Spring Boot Application 진입점
-// - Spring Security 설정
-// - 공통 예외 처리
-// - 공통 응답 포맷
-// - 각 모듈을 runtimeClasspath에서 참조
+// - Spring Security 설정 (JWT Stateless)
+// - 공통 예외 처리 (@RestControllerAdvice)
+// - 공통 응답 포맷 (ApiResponse)
+// - 각 업무 모듈을 runtimeOnly로 참조 (순환 의존 방지)
+//
+// [멀티모듈 의존 구조]
+//   core (app 진입점)
+//     └─ runtimeOnly → module-user, module-fire, module-sales
+//   module-* (업무 모듈)
+//     └─ compileOnly → core  (컴파일 시에만 참조, 런타임은 core가 포함)
 apply plugin: 'org.springframework.boot'
+
+configurations {
+    // core가 생성하는 plain jar를 다른 모듈이 compileOnly로 참조할 수 있도록 노출
+    coreApi
+}
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -26,10 +37,11 @@ dependencies {
     // Logging
     implementation 'org.springframework.boot:spring-boot-starter-logging'
 
-    // 업무 모듈 의존성 (모든 모듈을 core에서 참조)
-    implementation project(':module-user')
-    implementation project(':module-fire')
-    implementation project(':module-sales')
+    // 업무 모듈 의존성
+    // runtimeOnly: 런타임에 클래스패스에 포함 (순환 의존 방지)
+    runtimeOnly project(':module-user')
+    runtimeOnly project(':module-fire')
+    runtimeOnly project(':module-sales')
 }
 
 // core 모듈이 bootJar를 생성 (실행 가능 JAR)
@@ -38,6 +50,8 @@ bootJar {
     archiveBaseName = 'fireweb'
 }
 
+// plain jar도 생성 → 서브모듈이 compileOnly로 참조할 수 있도록
 jar {
-    enabled = false
+    enabled = true
+    archiveClassifier = 'plain'
 }
