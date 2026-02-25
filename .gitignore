@@ -2,6 +2,8 @@
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
 
 # IntelliJ IDEA
 .idea/
@@ -9,30 +11,43 @@ build/
 *.iml
 *.ipr
 out/
+!**/src/main/**/out/
+!**/src/test/**/out/
 
 # Eclipse
+.apt_generated
 .classpath
+.factorypath
 .project
-.settings/
+.settings
+.springBeans
+.sts4-cache
 bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
 
 # VS Code
 .vscode/
 
-# 환경 변수 (절대 커밋 금지)
-.env
-.env.local
+# MacOS
+.DS_Store
+
+# 환경변수 / 비밀값 파일
 *.env
+.env
+.env.*
+application-local.yml
+application-prod.yml
+**/src/main/resources/application-local.yml
+**/src/main/resources/application-prod.yml
 
 # 로그
 logs/
 *.log
 
-# 업로드 파일 (운영 서버 경로)
+# 업로드 파일
 uploads/
 
-# MacOS
-.DS_Store
-
-# Windows
-Thumbs.db
+# 컴파일 결과
+*.class
+target/
