@@ -293,7 +293,12 @@ const API = (() => {
       opts.body = JSON.stringify(opts.body);
     }
     const res = await fetch(url, { ...opts, headers });
-    if (res.status === 401) { window.location.href = '/login.html'; return null; }
+    if (res.status === 401) {
+      localStorage.removeItem('fireweb_token');
+      localStorage.removeItem('fireweb_user');
+      window.location.href = '/login.html';
+      return null;
+    }
     return res;
   }
   return { req, getToken, getUser, isAdmin };
@@ -928,6 +933,21 @@ document.addEventListener('extinguisher:upsertCompleted', () => loadExtinguisher
 (async function init() {
   const token = localStorage.getItem('fireweb_token');
   if (!token) { window.location.href = '/login.html'; return; }
+  // 토큰 만료 사전 체크
+  try {
+    const p = JSON.parse(atob(token.split('.')[1]));
+    if (p.exp && p.exp * 1000 < Date.now()) {
+      localStorage.removeItem('fireweb_token');
+      localStorage.removeItem('fireweb_user');
+      window.location.href = '/login.html';
+      return;
+    }
+  } catch(e) {
+    localStorage.removeItem('fireweb_token');
+    localStorage.removeItem('fireweb_user');
+    window.location.href = '/login.html';
+    return;
+  }
   renderNav();
   if (isAdmin) {
     const addBtn = document.getElementById('btnExtAdd');

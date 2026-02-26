@@ -546,6 +546,9 @@ async function apiFetch(url, options = {}) {
     if (token) headers['Authorization'] = 'Bearer ' + token;
     const res = await fetch(url, { ...options, headers });
     if (res.status === 401) {
+        // 토큰 삭제 후 이동 (삭제 안 하면 login.html → / → login.html 무한루프 발생)
+        localStorage.removeItem('fireweb_token');
+        localStorage.removeItem('fireweb_user');
         window.location.href = '/login.html';
         return null;
     }
@@ -563,6 +566,23 @@ function logout() {
 async function init() {
     const token = getToken();
     if (!token) {
+        window.location.href = '/login.html';
+        return;
+    }
+    // 토큰 만료 여부 사전 체크 (JWT payload exp 확인)
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+            // 만료된 토큰 → 삭제 후 로그인 이동
+            localStorage.removeItem('fireweb_token');
+            localStorage.removeItem('fireweb_user');
+            window.location.href = '/login.html';
+            return;
+        }
+    } catch(e) {
+        // 파싱 실패 = 유효하지 않은 토큰
+        localStorage.removeItem('fireweb_token');
+        localStorage.removeItem('fireweb_user');
         window.location.href = '/login.html';
         return;
     }
