@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FireWeb API 테스트</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <style>
+    pre { white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- Header -->
+<header class="bg-red-700 text-white shadow-lg">
+  <div class="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3">
+    <i class="fas fa-fire text-2xl text-yellow-300"></i>
+    <h1 class="text-2xl font-bold">FireWeb <span class="font-light text-red-200">API 대시보드</span></h1>
+    <span id="badge-status" class="ml-auto text-xs bg-gray-500 px-3 py-1 rounded-full">● 미로그인</span>
+  </div>
+</header>
+
+<div class="max-w-6xl mx-auto px-6 py-8 space-y-6">
+
+  <!-- 로그인 카드 -->
+  <div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-lg font-bold text-gray-700 mb-4"><i class="fas fa-sign-in-alt mr-2 text-red-600"></i>로그인</h2>
+    <div class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="text-xs text-gray-500">아이디</label>
+        <input id="inp-user" type="text" value="admin" class="block border rounded px-3 py-2 w-36 text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">비밀번호</label>
+        <input id="inp-pass" type="password" value="admin1234!" class="block border rounded px-3 py-2 w-40 text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+      </div>
+      <button onclick="doLogin()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition">
+        <i class="fas fa-key mr-1"></i>로그인
+      </button>
+      <button onclick="doLogout()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm transition">
+        로그아웃
+      </button>
+    </div>
+    <div id="login-result" class="mt-3 text-sm hidden"></div>
+  </div>
+
+  <!-- API 테스트 버튼 -->
+  <div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-lg font-bold text-gray-700 mb-4"><i class="fas fa-vial mr-2 text-blue-600"></i>API 테스트</h2>
+    <div class="flex flex-wrap gap-3">
+      <button onclick="callApi('GET','/fire-api/extinguishers','소화기 목록')" class="api-btn bg-orange-500 hover:bg-orange-600">
+        <i class="fas fa-fire-extinguisher mr-1"></i>소화기 목록
+      </button>
+      <button onclick="callApi('GET','/fire-api/hydrants','소화전 목록')" class="api-btn bg-blue-500 hover:bg-blue-600">
+        <i class="fas fa-tint mr-1"></i>소화전 목록
+      </button>
+      <button onclick="callApi('GET','/sales-api/orders','영업 주문 목록')" class="api-btn bg-green-600 hover:bg-green-700">
+        <i class="fas fa-clipboard-list mr-1"></i>영업 주문 목록
+      </button>
+      <button onclick="callApi('GET','/api/admin/users','사용자 목록')" class="api-btn bg-purple-600 hover:bg-purple-700">
+        <i class="fas fa-users mr-1"></i>사용자 목록
+      </button>
+    </div>
+  </div>
+
+  <!-- API 응답 결과 -->
+  <div id="result-card" class="bg-white rounded-2xl shadow p-6 hidden">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-bold text-gray-700"><i class="fas fa-terminal mr-2 text-gray-500"></i>응답 결과 — <span id="result-title" class="text-blue-600"></span></h2>
+      <span id="result-status" class="text-xs font-bold px-3 py-1 rounded-full"></span>
+    </div>
+    <pre id="result-body" class="bg-gray-50 border rounded-lg p-4 text-xs text-gray-800 max-h-96 overflow-y-auto"></pre>
+  </div>
+
+  <!-- API 엔드포인트 목록 -->
+  <div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-lg font-bold text-gray-700 mb-4"><i class="fas fa-list mr-2 text-gray-500"></i>전체 API 엔드포인트</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50 text-gray-500 text-left">
+            <th class="px-4 py-2">모듈</th><th class="px-4 py-2">메서드</th><th class="px-4 py-2">경로</th><th class="px-4 py-2">설명</th><th class="px-4 py-2">권한</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y">
+          <tr><td class="px-4 py-2"><span class="badge bg-gray-200 text-gray-700">인증</span></td><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">POST</span></td><td class="px-4 py-2 font-mono">/api/auth/login</td><td class="px-4 py-2">로그인 (JWT 발급)</td><td class="px-4 py-2 text-gray-400">공개</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-gray-200 text-gray-700">인증</span></td><td class="px-4 py-2"><span class="badge bg-yellow-100 text-yellow-700">PUT</span></td><td class="px-4 py-2 font-mono">/api/auth/change-password</td><td class="px-4 py-2">비밀번호 변경</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr class="bg-gray-50"><td class="px-4 py-2"><span class="badge bg-purple-100 text-purple-700">사용자</span></td><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">GET</span></td><td class="px-4 py-2 font-mono">/api/admin/users</td><td class="px-4 py-2">전체 사용자 조회</td><td class="px-4 py-2 text-red-500">ADMIN</td></tr>
+          <tr class="bg-gray-50"><td class="px-4 py-2"><span class="badge bg-purple-100 text-purple-700">사용자</span></td><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">POST</span></td><td class="px-4 py-2 font-mono">/api/admin/users</td><td class="px-4 py-2">사용자 등록</td><td class="px-4 py-2 text-red-500">ADMIN</td></tr>
+          <tr class="bg-gray-50"><td class="px-4 py-2"><span class="badge bg-purple-100 text-purple-700">사용자</span></td><td class="px-4 py-2"><span class="badge bg-red-100 text-red-700">DELETE</span></td><td class="px-4 py-2 font-mono">/api/admin/users/{id}</td><td class="px-4 py-2">사용자 비활성화</td><td class="px-4 py-2 text-red-500">ADMIN</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-orange-100 text-orange-700">소화기</span></td><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">GET</span></td><td class="px-4 py-2 font-mono">/fire-api/extinguishers</td><td class="px-4 py-2">소화기 목록 (페이징)</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-orange-100 text-orange-700">소화기</span></td><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">GET</span></td><td class="px-4 py-2 font-mono">/fire-api/extinguishers/{id}</td><td class="px-4 py-2">소화기 상세 조회</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-orange-100 text-orange-700">소화기</span></td><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">POST</span></td><td class="px-4 py-2 font-mono">/fire-api/extinguishers</td><td class="px-4 py-2">소화기 등록/수정</td><td class="px-4 py-2 text-red-500">ADMIN</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-orange-100 text-orange-700">소화기</span></td><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">POST</span></td><td class="px-4 py-2 font-mono">/fire-api/extinguishers/{id}/inspect</td><td class="px-4 py-2">점검 등록</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr class="bg-gray-50"><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">소화전</span></td><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">GET</span></td><td class="px-4 py-2 font-mono">/fire-api/hydrants</td><td class="px-4 py-2">소화전 목록 (페이징)</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr class="bg-gray-50"><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">소화전</span></td><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">GET</span></td><td class="px-4 py-2 font-mono">/fire-api/hydrants/{id}</td><td class="px-4 py-2">소화전 상세 조회</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr class="bg-gray-50"><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">소화전</span></td><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">POST</span></td><td class="px-4 py-2 font-mono">/fire-api/hydrants</td><td class="px-4 py-2">소화전 등록/수정</td><td class="px-4 py-2 text-red-500">ADMIN</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">영업</span></td><td class="px-4 py-2"><span class="badge bg-blue-100 text-blue-700">GET</span></td><td class="px-4 py-2 font-mono">/sales-api/orders</td><td class="px-4 py-2">주문 목록 (페이징)</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">영업</span></td><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">POST</span></td><td class="px-4 py-2 font-mono">/sales-api/orders</td><td class="px-4 py-2">주문 등록/수정</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">영업</span></td><td class="px-4 py-2"><span class="badge bg-yellow-100 text-yellow-700">PUT</span></td><td class="px-4 py-2 font-mono">/sales-api/orders/{id}/confirm</td><td class="px-4 py-2">주문 확정</td><td class="px-4 py-2">로그인 필요</td></tr>
+          <tr><td class="px-4 py-2"><span class="badge bg-green-100 text-green-700">영업</span></td><td class="px-4 py-2"><span class="badge bg-yellow-100 text-yellow-700">PUT</span></td><td class="px-4 py-2 font-mono">/sales-api/orders/{id}/cancel</td><td class="px-4 py-2">주문 취소</td><td class="px-4 py-2">로그인 필요</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .api-btn { @apply text-white px-4 py-2 rounded-lg text-sm font-semibold transition; }
+  .badge { @apply text-xs px-2 py-0.5 rounded font-medium; }
+</style>
+
+<script>
+  let token = localStorage.getItem('fw_token') || '';
+
+  function updateBadge() {
+    const el = document.getElementById('badge-status');
+    if (token) {
+      el.textContent = '● 로그인됨';
+      el.className = 'ml-auto text-xs bg-green-500 px-3 py-1 rounded-full';
+    } else {
+      el.textContent = '● 미로그인';
+      el.className = 'ml-auto text-xs bg-gray-500 px-3 py-1 rounded-full';
+    }
+  }
+
+  async function doLogin() {
+    const username = document.getElementById('inp-user').value;
+    const password = document.getElementById('inp-pass').value;
+    const resultEl = document.getElementById('login-result');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      resultEl.classList.remove('hidden');
+      if (data.ok) {
+        token = data.data.token;
+        localStorage.setItem('fw_token', token);
+        resultEl.className = 'mt-3 text-sm bg-green-50 border border-green-200 rounded-lg p-3 text-green-700';
+        resultEl.innerHTML = `<i class="fas fa-check-circle mr-1"></i><strong>${data.data.displayName}</strong> (${data.data.role}) 로그인 성공`;
+      } else {
+        resultEl.className = 'mt-3 text-sm bg-red-50 border border-red-200 rounded-lg p-3 text-red-700';
+        resultEl.innerHTML = `<i class="fas fa-times-circle mr-1"></i>${data.message}`;
+      }
+    } catch (e) {
+      resultEl.classList.remove('hidden');
+      resultEl.className = 'mt-3 text-sm bg-red-50 border border-red-200 rounded-lg p-3 text-red-700';
+      resultEl.innerHTML = `<i class="fas fa-exclamation-circle mr-1"></i>연결 오류: ${e.message}`;
+    }
+    updateBadge();
+  }
+
+  function doLogout() {
+    token = '';
+    localStorage.removeItem('fw_token');
+    const resultEl = document.getElementById('login-result');
+    resultEl.classList.remove('hidden');
+    resultEl.className = 'mt-3 text-sm bg-gray-50 border rounded-lg p-3 text-gray-500';
+    resultEl.innerHTML = '<i class="fas fa-sign-out-alt mr-1"></i>로그아웃 완료';
+    updateBadge();
+  }
+
+  async function callApi(method, path, title) {
+    const card = document.getElementById('result-card');
+    const bodyEl = document.getElementById('result-body');
+    const titleEl = document.getElementById('result-title');
+    const statusEl = document.getElementById('result-status');
+    card.classList.remove('hidden');
+    titleEl.textContent = title;
+    bodyEl.textContent = '불러오는 중...';
+    statusEl.textContent = '';
+
+    try {
+      const res = await fetch(path, {
+        method,
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      const data = await res.json();
+      statusEl.textContent = res.ok ? `${res.status} OK` : `${res.status} 오류`;
+      statusEl.className = res.ok
+        ? 'text-xs font-bold px-3 py-1 rounded-full bg-green-100 text-green-700'
+        : 'text-xs font-bold px-3 py-1 rounded-full bg-red-100 text-red-700';
+      bodyEl.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      statusEl.textContent = '연결 오류';
+      statusEl.className = 'text-xs font-bold px-3 py-1 rounded-full bg-red-100 text-red-700';
+      bodyEl.textContent = e.message;
+    }
+  }
+
+  // 페이지 로드 시 토큰 상태 반영
+  updateBadge();
+  if (token) {
+    const resultEl = document.getElementById('login-result');
+    resultEl.classList.remove('hidden');
+    resultEl.className = 'mt-3 text-sm bg-blue-50 border border-blue-200 rounded-lg p-3 text-blue-700';
+    resultEl.innerHTML = '<i class="fas fa-info-circle mr-1"></i>저장된 토큰이 있습니다. 바로 API 테스트 가능합니다.';
+  }
+</script>
+
+</body>
+</html>

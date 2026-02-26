@@ -56,6 +56,9 @@ public class SecurityConfig {
 
                 // 요청 인가 규칙
                 .authorizeHttpRequests(auth -> auth
+                        // 정적 리소스 및 테스트 UI: 모든 접근 허용
+                        .requestMatchers("/", "/index.html", "/*.html", "/favicon.ico",
+                                         "/css/**", "/js/**", "/images/**").permitAll()
                         // 인증 API (로그인): 모든 접근 허용
                         .requestMatchers("/api/auth/**").permitAll()
                         // 관리자 전용 엔드포인트
