@@ -21,6 +21,9 @@ spring:
     hibernate:
       # DDL 자동 생성 비활성화 (수동 DDL 스크립트 사용)
       ddl-auto: none
+      # @Table(name="MOD_SALES_ORDER") 등 대문자 테이블명 그대로 사용
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
     show-sql: false
     properties:
       hibernate:

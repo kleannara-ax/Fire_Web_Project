@@ -12,7 +12,7 @@ public interface WebUserRepository extends JpaRepository<WebUser, Long> {
 
     Optional<WebUser> findByUsername(String username);
 
-    Optional<WebUser> findByUsernameAndIsActiveTrue(String username);
+    Optional<WebUser> findByUsernameAndActiveTrue(String username);
 
     boolean existsByUsername(String username);
 }

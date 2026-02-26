@@ -37,7 +37,7 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public LoginResponse login(String username, String password) {
-        WebUser user = webUserRepository.findByUsernameAndIsActiveTrue(username)
+        WebUser user = webUserRepository.findByUsernameAndActiveTrue(username)
                 .orElseThrow(() -> {
                     log.warn("Login failed - user not found or inactive: {}", username);
                     return new BusinessException("아이디 또는 비밀번호가 올바르지 않습니다.");
@@ -74,7 +74,7 @@ public class UserService {
             throw new BusinessException("비밀번호는 최소 8자이며 영문/숫자/특수문자 조합을 권장합니다.");
         }
 
-        WebUser user = webUserRepository.findByUsernameAndIsActiveTrue(username)
+        WebUser user = webUserRepository.findByUsernameAndActiveTrue(username)
                 .orElseThrow(() -> new ResourceNotFoundException("사용자", null));
 
         if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
