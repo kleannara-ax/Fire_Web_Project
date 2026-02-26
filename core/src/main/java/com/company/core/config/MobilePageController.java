@@ -63,6 +63,16 @@ public class MobilePageController {
         return serveHtml("static/qr/index.html");
     }
 
+    /**
+     * 도면 매핑 페이지
+     * GET /floor or /floor/
+     */
+    @GetMapping({"/floor", "/floor/"})
+    @ResponseBody
+    public ResponseEntity<String> floorPage() throws IOException {
+        return serveHtml("static/floor/index.html");
+    }
+
     private ResponseEntity<String> serveHtml(String resourcePath) throws IOException {
         Resource resource = new ClassPathResource(resourcePath);
         if (!resource.exists()) {

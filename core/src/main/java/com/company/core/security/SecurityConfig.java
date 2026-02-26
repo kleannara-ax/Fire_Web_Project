@@ -69,6 +69,10 @@ public class SecurityConfig {
                         .requestMatchers("/qr/**", "/qr", "/minspection/**", "/minspection",
                                          "/minspection/extinguishers/**", "/minspection/hydrants/**",
                                          "/minspection/complete").permitAll()
+                        // 도면 화면 HTML 페이지: 인증 없이 서빙 (내부에서 JWT 로그인 오버레이로 처리)
+                        .requestMatchers("/floor", "/floor/").permitAll()
+                        // 도면 API: JWT 인증 필요
+                        .requestMatchers("/fire-api/floor/**").authenticated()
                         // 관리자 전용 엔드포인트
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // 소화기/소화전 API: 인증된 사용자
