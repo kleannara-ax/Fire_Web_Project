@@ -71,4 +71,16 @@ public interface FireHydrantRepository extends JpaRepository<FireHydrant, Long> 
     /** 다음 일련번호 계산용 */
     @Query("SELECT h.serialNumber FROM FireHydrant h WHERE h.serialNumber LIKE 'HYD-%'")
     List<String> findAllSerialNumbers();
+
+    /** QR 목록: 건물+층 필터 */
+    List<FireHydrant> findByBuilding_BuildingIdAndFloor_FloorId(Long buildingId, Long floorId);
+
+    /** QR 목록: 건물 필터 */
+    List<FireHydrant> findByBuilding_BuildingId(Long buildingId);
+
+    /** QR 목록: 층 필터 */
+    List<FireHydrant> findByFloor_FloorId(Long floorId);
+
+    /** 시리얼 번호 존재 여부 */
+    boolean existsBySerialNumber(String serialNumber);
 }

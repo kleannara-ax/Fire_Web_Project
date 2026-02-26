@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR코드 확인 - FireWeb</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .fireweb-navbar { position: relative; z-index: 1030; }
+    .fireweb-navbar .nav-link.account-link { color: #fff !important; }
+    .fireweb-navbar .brand-logos { display:flex; align-items:center; gap:8px; }
+    .fireweb-navbar .brand-logos img { height:32px !important; width:auto !important; display:block; object-fit:contain !important; }
+
+    .qr-wrap { padding: 16px; }
+    .qr-tools {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .qr-tools .tool {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .qr-tools select, .qr-tools input {
+      min-width: 160px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,.12);
+    }
+    .qr-tools .btn {
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-weight: 800;
+    }
+    .qr-section { margin-bottom: 26px; }
+    .qr-title { font-weight: 900; font-size: 20px; margin-bottom: 10px; }
+    .qr-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 14px;
+    }
+    .qr-card {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.08);
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .qr-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,.14); }
+    .qr-card .row { display: flex; gap: 12px; align-items: center; justify-content: center; text-align: center; }
+    .qr-img {
+      width: 120px; height: 120px;
+      border: 1px solid rgba(0,0,0,.1);
+      border-radius: 12px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .qr-img img { width: 100%; height: 100%; object-fit: contain; }
+    .qr-meta { font-size: 13px; color: #444; line-height: 1.5; text-align: left; }
+    .qr-meta .id { font-weight: 900; font-size: 14px; color: #111; }
+    .qr-meta .muted { color: #6b7280; }
+    .qr-meta .manual-line { margin-top: 4px; white-space: nowrap; }
+    .qr-meta .manual-fill {
+      display: inline-block;
+      min-width: 92px;
+      height: 14px;
+      vertical-align: bottom;
+      border-bottom: 1px solid #999;
+    }
+
+    .qr-grid.hyd-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    .qr-card.hyd-card { padding: 16px; }
+    .qr-card.hyd-card .qr-img { width: 200px; height: 200px; }
+    .qr-card.hyd-card .qr-meta { font-size: 15px; line-height: 1.7; }
+    .qr-card.hyd-card .qr-meta .id { font-size: 17px; }
+
+    .qr-empty { padding: 12px; background: #f8f9fa; border-radius: 12px; color: #666; }
+
+    #fwToast { position: fixed; top: 16px; right: 16px; z-index: 2000; }
+
+    @media print {
+      @page { size: A4; margin: 10mm; }
+      body { background: #fff !important; }
+      header, nav, .fireweb-navbar { display: none !important; }
+      .qr-tools, .qr-section > .qr-title { display: none !important; }
+      .qr-wrap { padding: 0; }
+      .qr-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+      .qr-card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        padding: 8px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .qr-img { width: 96px; height: 96px; }
+      .qr-meta { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<header>
+  <nav class="navbar navbar-expand-lg navbar-dark fireweb-navbar" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="/index.html">
+        <span class="brand-logos" aria-hidden="true">
+          <img src="/images/Kleannara.PNG" alt="" onerror="this.style.display='none'" />
+          <img src="/images/KFMS.PNG" alt="" onerror="this.style.display='none'" />
+        </span>
+        <span class="visually-hidden">FireWeb</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="topNav">
+        <ul class="navbar-nav ms-3">
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/extinguishers.html">소화기 목록</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/hydrants.html">소화전 목록</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/index.html">도면</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold active" href="/qr/index.html">QR코드</a></li>
+        </ul>
+        <ul class="navbar-nav ms-auto align-items-center" id="navAccountArea"></ul>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main class="container-fluid py-3">
+  <div class="qr-wrap">
+
+    <!-- 필터 도구 -->
+    <div class="qr-tools">
+      <div class="tool">
+        <label class="fw-semibold">건물</label>
+        <select id="filterBuilding">
+          <option value="">전체</option>
+        </select>
+      </div>
+      <div class="tool">
+        <label class="fw-semibold">층</label>
+        <select id="filterFloor">
+          <option value="">전체</option>
+        </select>
+      </div>
+      <div class="tool">
+        <label class="fw-semibold">미등록 소화기 QR</label>
+        <input type="number" id="unregExtCount" min="0" max="500" value="0" />
+      </div>
+      <div class="tool">
+        <label class="fw-semibold">미등록 소화전 QR</label>
+        <input type="number" id="unregHydCount" min="0" max="500" value="0" />
+      </div>
+      <div class="tool">
+        <button type="button" class="btn btn-primary" id="btnFilter">필터 적용</button>
+      </div>
+      <div class="tool ms-auto">
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">QR 인쇄</button>
+      </div>
+    </div>
+
+    <!-- 미등록 소화기 QR 섹션 -->
+    <div class="qr-section" id="unregExtSection" style="display:none;">
+      <div class="qr-title">미등록 소화기 QR</div>
+      <div class="qr-grid" id="unregExtGrid"></div>
+    </div>
+
+    <!-- 미등록 소화전 QR 섹션 -->
+    <div class="qr-section" id="unregHydSection" style="display:none;">
+      <div class="qr-title">미등록 소화전 QR</div>
+      <div class="qr-grid hyd-grid" id="unregHydGrid"></div>
+    </div>
+
+    <!-- 소화기 QR 섹션 -->
+    <div class="qr-section" id="extSection">
+      <div class="qr-title">🧯 소화기 QR</div>
+      <div id="extGridWrap">
+        <div class="text-center py-4 text-muted">불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 소화전 QR 섹션 -->
+    <div class="qr-section" id="hydSection">
+      <div class="qr-title">🚒 소화전 QR</div>
+      <div id="hydGridWrap">
+        <div class="text-center py-4 text-muted">불러오는 중...</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- 토스트 -->
+<div id="fwToast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function(){
+  const API_BASE = '/fire-api';
+  let token = localStorage.getItem('fw_token') || '';
+  let buildings = [];
+  let floors = [];
+
+  // ======= Auth helper =======
+  function authHeaders() {
+    return token ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+  }
+
+  async function apiFetch(url, opts = {}) {
+    const res = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+    if (res.status === 401) { window.location.href = '/login.html'; return null; }
+    return res.json();
+  }
+
+  // ======= Init =======
+  async function init() {
+    // Load buildings & floors
+    const [bRes, fRes] = await Promise.all([
+      apiFetch(API_BASE + '/qr/buildings'),
+      apiFetch(API_BASE + '/qr/floors')
+    ]);
+    if (!bRes || !fRes) return;
+
+    buildings = bRes.data || [];
+    floors = fRes.data || [];
+
+    const bSel = document.getElementById('filterBuilding');
+    buildings.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.buildingId;
+      opt.textContent = b.buildingName;
+      bSel.appendChild(opt);
+    });
+
+    const fSel = document.getElementById('filterFloor');
+    floors.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.floorId;
+      opt.textContent = f.floorName;
+      fSel.appendChild(opt);
+    });
+
+    await loadData();
+  }
+
+  // ======= Load Data =======
+  async function loadData() {
+    const buildingId = document.getElementById('filterBuilding').value;
+    const floorId = document.getElementById('filterFloor').value;
+    const unregExt = parseInt(document.getElementById('unregExtCount').value || '0', 10);
+    const unregHyd = parseInt(document.getElementById('unregHydCount').value || '0', 10);
+
+    let qsArr = [];
+    if (buildingId) qsArr.push('buildingId=' + buildingId);
+    if (floorId) qsArr.push('floorId=' + floorId);
+    const qs = qsArr.length ? '?' + qsArr.join('&') : '';
+
+    const listRes = await apiFetch(API_BASE + '/qr/list' + qs);
+    if (!listRes) return;
+    const extList = listRes.data?.extinguishers || [];
+    const hydList = listRes.data?.hydrants || [];
+
+    // Render registered extinguishers
+    const extWrap = document.getElementById('extGridWrap');
+    if (unregExt <= 0) {
+      document.getElementById('extSection').style.display = '';
+      if (extList.length === 0) {
+        extWrap.innerHTML = '<div class="qr-empty">소화기 데이터가 없습니다.</div>';
+      } else {
+        extWrap.innerHTML = '<div class="qr-grid">' +
+          extList.map(e => renderExtCard(e)).join('') + '</div>';
+      }
+    } else {
+      document.getElementById('extSection').style.display = 'none';
+    }
+
+    // Render registered hydrants
+    const hydWrap = document.getElementById('hydGridWrap');
+    if (unregHyd <= 0) {
+      document.getElementById('hydSection').style.display = '';
+      if (hydList.length === 0) {
+        hydWrap.innerHTML = '<div class="qr-empty">소화전 데이터가 없습니다.</div>';
+      } else {
+        hydWrap.innerHTML = '<div class="qr-grid hyd-grid">' +
+          hydList.map(h => renderHydCard(h)).join('') + '</div>';
+      }
+    } else {
+      document.getElementById('hydSection').style.display = 'none';
+    }
+
+    // Unregistered serials
+    if (unregExt > 0 || unregHyd > 0) {
+      const serialRes = await apiFetch(
+        API_BASE + '/qr/unregistered-serials?extCount=' + Math.max(0, unregExt) + '&hydCount=' + Math.max(0, unregHyd)
+      );
+      if (serialRes) {
+        renderUnregistered(serialRes.data?.unregisteredExtSerials || [], serialRes.data?.unregisteredHydSerials || []);
+      }
+    } else {
+      document.getElementById('unregExtSection').style.display = 'none';
+      document.getElementById('unregHydSection').style.display = 'none';
+    }
+  }
+
+  // ======= Render helpers =======
+  function qrImgUrl(type, id) {
+    return API_BASE + '/qr/image?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id);
+  }
+
+  function renderExtCard(e) {
+    return `<div class="qr-card" data-qr-type="ext" data-qr-id="${e.extinguisherId}">
+      <div class="row">
+        <div class="qr-img"><img alt="QR" src="${qrImgUrl('ext', e.serialNumber)}" loading="lazy" /></div>
+        <div class="qr-meta">
+          <div class="id">소화기 ID: ${escHtml(e.serialNumber)}</div>
+          <div>건물: ${escHtml(e.buildingName)} ${escHtml(e.floorName)}</div>
+          <div>종류: ${escHtml(e.extinguisherType)}</div>
+          <div class="muted">제조일: ${escHtml(e.installDate)}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function renderHydCard(h) {
+    const isOutdoor = (h.hydrantType || '').toLowerCase() === 'outdoor';
+    const buildingLine = isOutdoor ? '옥외' : escHtml(h.buildingName) + ' ' + escHtml(h.floorName);
+    const opText = (h.operationType || '').toLowerCase() === 'auto' ? '자동' :
+                   (h.operationType || '').toLowerCase() === 'manual' ? '수동' : escHtml(h.operationType);
+    const loc = h.locationDescription ? escHtml(h.locationDescription) : '-';
+    return `<div class="qr-card hyd-card" data-qr-type="hyd" data-qr-id="${h.hydrantId}">
+      <div class="row">
+        <div class="qr-img"><img alt="QR" src="${qrImgUrl('hyd', h.serialNumber)}" loading="lazy" /></div>
+        <div class="qr-meta">
+          <div class="id">소화전 ID: ${escHtml(h.serialNumber)}</div>
+          <div>건물: ${buildingLine}</div>
+          <div>작동: ${opText}</div>
+          <div>상세 위치: ${loc}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function renderUnregistered(extSerials, hydSerials) {
+    const extSection = document.getElementById('unregExtSection');
+    const extGrid = document.getElementById('unregExtGrid');
+    if (extSerials.length > 0) {
+      extSection.style.display = '';
+      extGrid.innerHTML = extSerials.map(code => `
+        <div class="qr-card">
+          <div class="row">
+            <div class="qr-img"><img alt="QR" src="${qrImgUrl('ext', code)}" loading="lazy" /></div>
+            <div class="qr-meta">
+              <div class="id">소화기 ID: ${escHtml(code)}</div>
+              <div class="manual-line">건물: <span class="manual-fill"></span></div>
+              <div class="manual-line">소화기 종류: <span class="manual-fill"></span></div>
+              <div class="manual-line">제조일: <span class="manual-fill"></span></div>
+            </div>
+          </div>
+        </div>`).join('');
+    } else {
+      extSection.style.display = 'none';
+    }
+
+    const hydSection = document.getElementById('unregHydSection');
+    const hydGrid = document.getElementById('unregHydGrid');
+    if (hydSerials.length > 0) {
+      hydSection.style.display = '';
+      hydGrid.innerHTML = hydSerials.map(code => `
+        <div class="qr-card hyd-card">
+          <div class="row">
+            <div class="qr-img"><img alt="QR" src="${qrImgUrl('hyd', code)}" loading="lazy" /></div>
+            <div class="qr-meta">
+              <div class="id">소화전 ID: ${escHtml(code)}</div>
+              <div class="manual-line">건물: <span class="manual-fill"></span></div>
+              <div class="manual-line">작동: <span class="manual-fill"></span></div>
+              <div class="manual-line">상세 위치: <span class="manual-fill"></span></div>
+            </div>
+          </div>
+        </div>`).join('');
+    } else {
+      hydSection.style.display = 'none';
+    }
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ======= Nav Account Rendering =======
+  function renderNav() {
+    const area = document.getElementById('navAccountArea');
+    if (!area) return;
+    const user = localStorage.getItem('fw_user');
+    if (token && user) {
+      area.innerHTML = `<li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle account-link" href="#" data-bs-toggle="dropdown">${escHtml(user)}</a>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="#" id="btnLogout">로그아웃</a></li>
+        </ul>
+      </li>`;
+      document.getElementById('btnLogout')?.addEventListener('click', () => {
+        localStorage.removeItem('fw_token');
+        localStorage.removeItem('fw_user');
+        window.location.href = '/login.html';
+      });
+    } else {
+      area.innerHTML = `<li class="nav-item"><a class="nav-link account-link" href="/login.html">로그인</a></li>`;
+    }
+  }
+
+  // ======= Events =======
+  document.getElementById('btnFilter').addEventListener('click', () => { loadData(); });
+
+  // ======= Start =======
+  renderNav();
+  init();
+})();
+</script>
+</body>
+</html>

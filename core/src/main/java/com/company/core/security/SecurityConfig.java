@@ -58,9 +58,17 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 정적 리소스 및 테스트 UI: 모든 접근 허용
                         .requestMatchers("/", "/index.html", "/*.html", "/favicon.ico",
-                                         "/css/**", "/js/**", "/images/**").permitAll()
+                                         "/css/**", "/js/**", "/images/**", "/error").permitAll()
                         // 인증 API (로그인): 모든 접근 허용
                         .requestMatchers("/api/auth/**").permitAll()
+                        // QR 코드 이미지 생성: 인증 없이 접근 (QR 스캔 시 이미지 로드)
+                        .requestMatchers("/fire-api/qr/image").permitAll()
+                        // 모바일 점검 API: 인증 없이 접근 (QR 스캔 후 바로 접근)
+                        .requestMatchers("/fire-api/minspection/**").permitAll()
+                        // 모바일 점검 HTML 페이지: 인증 없이 접근
+                        .requestMatchers("/qr/**", "/qr", "/minspection/**", "/minspection",
+                                         "/minspection/extinguishers/**", "/minspection/hydrants/**",
+                                         "/minspection/complete").permitAll()
                         // 관리자 전용 엔드포인트
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // 소화기/소화전 API: 인증된 사용자

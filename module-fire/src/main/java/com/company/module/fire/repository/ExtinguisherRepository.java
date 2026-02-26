@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -55,4 +56,22 @@ public interface ExtinguisherRepository extends JpaRepository<Extinguisher, Long
             Pageable pageable);
 
     boolean existsBySerialNumber(String serialNumber);
+
+    /** QR 목록: 건물+층 필터 */
+    List<Extinguisher> findByBuilding_BuildingIdAndFloor_FloorId(Long buildingId, Long floorId);
+
+    /** QR 목록: 건물 필터 */
+    List<Extinguisher> findByBuilding_BuildingId(Long buildingId);
+
+    /** QR 목록: 층 필터 */
+    List<Extinguisher> findByFloor_FloorId(Long floorId);
+
+    /** 도면용: 특정 건물/층의 소화기 좌표 조회 */
+    @Query("SELECT e FROM Extinguisher e " +
+           "WHERE e.building.buildingId = :buildingId " +
+           "AND e.floor.floorId = :floorId " +
+           "AND e.x IS NOT NULL AND e.y IS NOT NULL")
+    List<Extinguisher> findForMap(
+            @Param("buildingId") Long buildingId,
+            @Param("floorId") Long floorId);
 }

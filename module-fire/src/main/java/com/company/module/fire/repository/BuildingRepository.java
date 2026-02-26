@@ -18,4 +18,7 @@ public interface BuildingRepository extends JpaRepository<Building, Long> {
      * Building.active = true 조건 (DB 컬럼: is_active)
      */
     List<Building> findByActiveTrueOrderByBuildingName();
+
+    /** QR 페이지: 전체 건물 목록 (이름순) */
+    List<Building> findAllByOrderByBuildingNameAsc();
 }

@@ -37,6 +37,10 @@ dependencies {
     // Logging
     implementation 'org.springframework.boot:spring-boot-starter-logging'
 
+    // QR 코드 생성 (ZXing)
+    implementation 'com.google.zxing:core:3.5.3'
+    implementation 'com.google.zxing:javase:3.5.3'
+
     // 업무 모듈 의존성
     // runtimeOnly: 런타임에 클래스패스에 포함 (순환 의존 방지)
     runtimeOnly project(':module-user')

@@ -1,14 +1,13 @@
 package com.company.core.config;
 
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.config.annotation.*;
 
 /**
  * Web MVC 공통 설정
  * <p>
  * - CORS 설정 (개발환경: 모든 Origin 허용 / 운영: 도메인 제한)
- * - 추가 MVC 공통 설정은 이 클래스에서 관리
+ * - 모바일 점검/QR 경로는 MobilePageController에서 처리
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
