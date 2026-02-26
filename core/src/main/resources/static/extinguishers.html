@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>소화기 관리 - FireWeb</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* ===== _Layout.cshtml 그대로 ===== */
+    .fireweb-navbar { position: relative; z-index: 1030; }
+    .fireweb-navbar .dropdown-menu { z-index: 1040; }
+    .fireweb-navbar .nav-link.account-link { color: #fff !important; }
+    .fireweb-navbar .brand-logos { display:flex; align-items:center; gap:8px; }
+    .fireweb-navbar .brand-logos img{ height:32px !important; width:auto !important; display:block; object-fit:contain !important; }
+
+    /* ===== Extinguishers/Index.cshtml 그대로 ===== */
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover { background-color: rgba(0,0,0,.04); }
+    .js-zoomable { cursor: zoom-in; }
+    .info-row { font-size: 0.95rem; }
+
+    /* ===== 토스트 ===== */
+    #fwToast { position:fixed; top:16px; right:16px; z-index:2000; }
+  </style>
+</head>
+<body>
+
+<!-- ===== Navbar (_Layout.cshtml) ===== -->
+<header>
+  <nav class="navbar navbar-expand-lg navbar-dark fireweb-navbar" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="/index.html">
+        <span class="brand-logos" aria-hidden="true">
+          <img src="/images/Kleannara.PNG" alt="" onerror="this.style.display='none'" />
+          <img src="/images/KFMS.PNG" alt="" onerror="this.style.display='none'" />
+        </span>
+        <span class="visually-hidden">FireWeb</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="topNav">
+        <ul class="navbar-nav ms-3">
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/extinguishers.html">소화기 목록</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/hydrants.html">소화전 목록</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/maps/floor.html?buildingName=복지관&floorName=1층">도면</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/qr/index.html">QR코드</a></li>
+        </ul>
+        <ul class="navbar-nav ms-auto align-items-center" id="navAccountArea">
+          <!-- JS로 렌더링 -->
+        </ul>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main class="container-fluid py-4">
+
+  <!-- ===== 상단 헤더 카드 (Extinguishers/Index.cshtml) ===== -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body d-flex justify-content-between align-items-center text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+      <div>
+        <h3 class="mb-1 fw-bold">소화기 관리</h3>
+        <div class="text-white-50 fw-semibold">총 <span id="totalCount">0</span> 건</div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <div class="btn-group" role="group">
+          <button type="button" class="btn btn-info text-white" id="btnStatusInspect">
+            점검필요 <span id="countInspect">(0)</span>
+          </button>
+          <button type="button" class="btn btn-warning text-white" id="btnStatusPlanned">
+            교체예정 <span id="countPlanned">(0)</span>
+          </button>
+          <button type="button" class="btn btn-danger text-white" id="btnStatusUrgent">
+            교체필요 <span id="countUrgent">(0)</span>
+          </button>
+        </div>
+        <button type="button" class="btn btn-light fw-bold ms-2" id="btnExtAdd" style="display:none;">+ 등록</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 검색 필터 ===== -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-4">
+          <input id="filterQ" class="form-control" placeholder="검색(건물/층/종류/비고)" />
+        </div>
+        <div class="col-md-3">
+          <select id="filterBuildingId" class="form-select">
+            <option value="">-- 건물 전체 --</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select id="filterFloorId" class="form-select">
+            <option value="">-- 층 전체 --</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+          <button class="btn btn-primary w-100" type="button" id="btnSearch">검색</button>
+          <button class="btn btn-outline-secondary w-100" type="button" id="btnReset">초기화</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 상태 패널 (collapse) ===== -->
+  <div class="collapse mb-4" id="statusPanel">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center bg-light">
+        <strong id="statusPanelTitle">상태 목록</strong>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#statusPanel">닫기</button>
+      </div>
+      <div class="card-body p-0" style="max-height:35vh; overflow-y:auto;">
+        <div id="statusPanelBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 메인 테이블 ===== -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0" id="mainTableWrap">
+      <div class="text-center py-5 text-muted">데이터를 불러오는 중...</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== 소화기 상세 모달 (_detailsModal.cshtml 기반) ===== -->
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">소화기 상세</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="detailsModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 이미지 확대 모달 -->
+<div class="modal fade" id="detailImageZoomModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: min(96vw, 1600px);">
+    <div class="modal-content bg-dark">
+      <div class="modal-header border-0">
+        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-0 pb-3">
+        <div id="detailImageZoomStage" class="position-relative mx-auto" style="width:100%; height:min(88vh,1200px);">
+          <img id="detailImageZoomTarget" alt="확대 이미지" style="width:100%;height:100%;object-fit:contain;display:block;" />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== _InspectModal.cshtml ===== -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:3000;">
+  <div id="inspectToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="inspectToastBody">점검이 완료되었습니다.</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="inspectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">점검 완료</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">점검을 완료하셨습니까?</div>
+        <div class="card border-0 bg-light mb-3">
+          <div class="card-body py-2">
+            <div class="fw-semibold mb-1">✅ 점검 결과</div>
+            <div class="d-flex gap-3 align-items-center flex-wrap inspect-radio">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="inspectResult" id="inspectOk" value="ok" checked>
+                <label class="form-check-label" for="inspectOk">정상</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="inspectResult" id="inspectBad" value="bad">
+                <label class="form-check-label" for="inspectBad">비정상</label>
+              </div>
+            </div>
+            <div class="mt-2" id="faultReasonWrap" style="display:none;">
+              <label class="form-label mb-1">고장 사유 <span class="text-danger">(필수)</span></label>
+              <textarea class="form-control" id="faultReasonInput" rows="2" placeholder="비정상인 경우 고장 사유를 입력하세요."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="alert alert-info py-2 mb-3">
+          <div class="fw-semibold">📷 소화기 사진</div>
+          <div class="small text-muted">사진이 아직 없으면 여기서 바로 등록하세요. (소화기 1건당 1장)</div>
+        </div>
+        <input class="form-control" type="file" id="inspectPhotoInput" accept="image/*" />
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <button type="button" class="btn btn-outline-primary btn-sm" id="aiAnalyzeBtn">AI 분석</button>
+          <div class="small" id="aiAnalyzeHint" style="display:none;"></div>
+        </div>
+        <div class="text-muted small mt-1" style="line-height:1.4;">
+          ※ 정면에서 촬영하고, 압력계(게이지)가 크게 보이도록 가까이 찍어주세요.<br />
+          ※ 빛 반사·그림자가 적고, 바늘 위치/색상 구분이 명확한 사진이 정확합니다.
+        </div>
+        <div class="text-muted small mt-2">jpg/jpeg/png/webp · 5MB 이하</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+        <button class="btn btn-success" id="confirmInspectBtn">점검 완료</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 소화기 등록/수정 모달 (_ExtinguisherUpsertModal.cshtml) ===== -->
+<div class="modal fade" id="extUpsertModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="extUpsertTitle">소화기</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="extUpsertForm">
+          <input type="hidden" id="extId" value="0" />
+          <input type="hidden" id="extBuildingId" />
+          <input type="hidden" id="extFloorId" />
+          <input type="hidden" id="extX" />
+          <input type="hidden" id="extY" />
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">소화기 종류</label>
+              <input class="form-control" id="extType" required />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">제조일(=InstallDate)</label>
+              <input type="date" class="form-control" id="extInstallDate" required />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">수량</label>
+              <input type="number" class="form-control" id="extQty" min="1" value="1" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">건물</label>
+              <select class="form-select" id="extBuildingSel"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">층</label>
+              <select class="form-select" id="extFloorSel"></select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">비고</label>
+              <textarea class="form-control" rows="2" id="extNote"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">사진 등록</label>
+              <input type="file" class="form-control" id="extPhoto" accept="image/*" />
+              <div class="form-text">이미지 경로는 표시하지 않습니다.</div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+        <button type="button" class="btn btn-primary" id="extSaveBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 컨테이너 -->
+<div id="fwToast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ===== JWT & 공용 API =====
+const API = (() => {
+  const getToken = () => localStorage.getItem('fireweb_token');
+  const getUser  = () => { try{ return JSON.parse(localStorage.getItem('fireweb_user')||'null'); }catch{ return null; } };
+  const isAdmin  = () => { const u = getUser(); return u && u.role === 'ADMIN'; };
+
+  async function req(url, opts = {}) {
+    const token = getToken();
+    const headers = { ...(opts.headers||{}) };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    if (!(opts.body instanceof FormData) && opts.body && typeof opts.body === 'object') {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.body);
+    }
+    const res = await fetch(url, { ...opts, headers });
+    if (res.status === 401) { window.location.href = '/login.html'; return null; }
+    return res;
+  }
+  return { req, getToken, getUser, isAdmin };
+})();
+
+// ===== 상태 =====
+let allItems = [];
+let currentStatusType = null;
+let currentExtinguisherId = null;
+const isAdmin = API.isAdmin();
+
+// ===== 토스트 =====
+function showToast(msg, type='success') {
+  const id = 'fwToastBox';
+  let box = document.getElementById(id);
+  if (!box) {
+    box = document.createElement('div');
+    box.id = id;
+    box.className = `alert alert-${type} shadow`;
+    box.style.cssText = 'margin:0; opacity:0; transition:opacity 500ms ease;';
+    document.getElementById('fwToast').appendChild(box);
+  }
+  box.className = `alert alert-${type} shadow`;
+  box.textContent = msg;
+  document.getElementById('fwToast').style.cssText = 'position:fixed;top:16px;right:16px;z-index:2000;';
+  requestAnimationFrame(() => { box.style.opacity = '1'; });
+  setTimeout(() => { box.style.opacity = '0'; }, 2200);
+  setTimeout(() => { const w = document.getElementById('fwToast'); if(w) w.innerHTML=''; }, 3200);
+}
+
+// ===== 네비게이션 계정 영역 렌더링 (_Layout.cshtml) =====
+function renderNav() {
+  const user = API.getUser();
+  const area = document.getElementById('navAccountArea');
+  if (!area) return;
+  if (user) {
+    area.innerHTML = `
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle fw-semibold account-link" href="#" role="button" data-bs-toggle="dropdown">
+          ${user.username || '사용자'}
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="/account/index.html">내 정보</a></li>
+          ${isAdmin ? '<li><a class="dropdown-item" href="/account/users.html">계정관리</a></li>' : ''}
+          <li><hr class="dropdown-divider" /></li>
+          <li class="px-3 pb-2"><button type="button" class="btn btn-sm btn-danger w-100" onclick="logout()">로그아웃</button></li>
+        </ul>
+      </li>`;
+  } else {
+    area.innerHTML = '<li class="nav-item"><a class="btn btn-sm btn-outline-light" href="/login.html">로그인</a></li>';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('fireweb_token');
+  localStorage.removeItem('fireweb_user');
+  window.location.href = '/login.html';
+}
+
+// ===== 건물/층 옵션 로드 =====
+async function loadBuildingOptions() {
+  // 소화기 목록에서 유니크 건물/층 추출
+  const buildings = [...new Map(
+    allItems.filter(x => x.buildingId && x.buildingName)
+            .map(x => [x.buildingId, x.buildingName])
+  ).entries()];
+  const floors = [...new Map(
+    allItems.filter(x => x.floorId && x.floorName)
+            .map(x => [x.floorId, x.floorName])
+  ).entries()];
+
+  const bSel = document.getElementById('filterBuildingId');
+  const fSel = document.getElementById('filterFloorId');
+  bSel.innerHTML = '<option value="">-- 건물 전체 --</option>' +
+    buildings.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+  fSel.innerHTML = '<option value="">-- 층 전체 --</option>' +
+    floors.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+
+  // 소화기 upsert 모달 건물/층 셀렉트
+  const extB = document.getElementById('extBuildingSel');
+  const extF = document.getElementById('extFloorSel');
+  if (extB) {
+    extB.innerHTML = '<option value="">-- 건물 선택 --</option>' +
+      buildings.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+  }
+  if (extF) {
+    extF.innerHTML = '<option value="">-- 층 선택 --</option>' +
+      floors.map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+  }
+}
+
+// ===== 소화기 목록 로드 =====
+async function loadExtinguishers(q='', buildingId='', floorId='') {
+  const params = new URLSearchParams({ size: 200, page: 0 });
+  if (q) params.set('q', q);
+  if (buildingId) params.set('buildingId', buildingId);
+  if (floorId) params.set('floorId', floorId);
+  const res = await API.req(`/fire-api/extinguishers?${params}`);
+  if (!res) return;
+  const json = await res.json();
+  if (json.ok && json.data) {
+    allItems = json.data.content || [];
+  } else {
+    allItems = [];
+  }
+  await loadBuildingOptions();
+  renderTable(allItems);
+  updateBucketCounts();
+}
+
+// ===== 버킷 카운트 계산 (날짜 기반) =====
+function calcBuckets(items) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let inspectCount = 0, plannedCount = 0, urgentCount = 0;
+  items.forEach(item => {
+    const lastDate = item.lastInspectionDate ? new Date(item.lastInspectionDate) : null;
+    const dueDate  = item.replacementDueDate ? new Date(item.replacementDueDate) : null;
+    const isFaulty = item.lastIsFaulty === true;
+
+    // 점검필요: 최종점검이 없거나 1달 이상 지남
+    const needInspect = !lastDate || (new Date(lastDate.getTime() + 30*24*3600*1000) <= today);
+    if (needInspect) inspectCount++;
+
+    // 교체필요: 비정상이거나 교체예정일이 30일 이내/지남
+    const replaceNeed = isFaulty || (dueDate && (dueDate < today || dueDate <= new Date(today.getTime() + 30*24*3600*1000)));
+    if (replaceNeed) urgentCount++;
+
+    // 교체예정: 6개월 이내이고 교체필요 아닌 것
+    const replacePlanned = dueDate && dueDate >= today && dueDate <= new Date(today.getTime() + 180*24*3600*1000) && !replaceNeed;
+    if (replacePlanned) plannedCount++;
+  });
+  return { inspectCount, plannedCount, urgentCount };
+}
+
+function updateBucketCounts() {
+  const { inspectCount, plannedCount, urgentCount } = calcBuckets(allItems);
+  document.getElementById('totalCount').textContent = allItems.length;
+  document.getElementById('countInspect').textContent = `(${inspectCount})`;
+  document.getElementById('countPlanned').textContent = `(${plannedCount})`;
+  document.getElementById('countUrgent').textContent = `(${urgentCount})`;
+}
+
+// ===== 메인 테이블 렌더링 (_ExtListTable.cshtml 기반) =====
+function renderTable(items) {
+  const wrap = document.getElementById('mainTableWrap');
+  if (!items.length) {
+    wrap.innerHTML = '<div class="text-center text-muted py-4">조회 결과가 없습니다.</div>';
+    return;
+  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  let rows = '';
+  items.forEach((item, i) => {
+    let statusText = '-';
+    if (item.lastIsFaulty === true) {
+      statusText = '비정상';
+      if (item.lastFaultReason) statusText += `: ${item.lastFaultReason}`;
+    } else if (item.lastIsFaulty === false) {
+      statusText = '정상';
+    }
+    const lastInspDate = item.lastInspectionDate ? item.lastInspectionDate.slice(0,10) : '';
+    const lastInspector = item.lastInspectorName || '';
+    const installDate = item.installDate ? item.installDate.slice(0,10) : '-';
+    const replaceDue = item.replacementDueDate ? item.replacementDueDate.slice(0,10) : '-';
+    rows += `
+      <tr class="clickable-row js-detail-row" data-id="${item.extinguisherId}">
+        <td style="text-align:center;">${i+1}</td>
+        <td class="text-truncate" title="${item.buildingName||''}">${item.buildingName||'-'}</td>
+        <td class="text-truncate" title="${item.floorName||''}">${item.floorName||'-'}</td>
+        <td class="text-truncate" title="${item.extinguisherType||''}">${item.extinguisherType||'-'}</td>
+        <td style="text-align:center;">${item.quantity||1}</td>
+        <td>${installDate}</td>
+        <td class="text-truncate" title="${lastInspDate} ${lastInspector}">
+          ${lastInspDate ? `<span>${lastInspDate}</span>${lastInspector?`<span class="text-muted" style="font-size:12px;">(${lastInspector})</span>`:''}` : '<span class="text-muted">-</span>'}
+        </td>
+        <td>${replaceDue}</td>
+        <td class="text-truncate" title="${statusText}">${statusText}</td>
+        <td>
+          <div class="d-flex gap-1">
+            <button type="button" class="btn btn-sm btn-outline-primary js-inspect" data-id="${item.extinguisherId}">점검</button>
+            ${isAdmin ? `<button type="button" class="btn btn-sm btn-outline-secondary js-ext-edit" data-id="${item.extinguisherId}">수정</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+  });
+  wrap.innerHTML = `
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="table-layout:fixed;">
+        <thead class="table-light">
+          <tr>
+            <th style="width:55px;text-align:center;">NO</th>
+            <th style="width:160px;">건물</th>
+            <th style="width:110px;">층</th>
+            <th style="width:170px;">종류</th>
+            <th style="width:70px;text-align:center;">수량</th>
+            <th style="width:110px;">설치일</th>
+            <th style="width:120px;">최종점검</th>
+            <th style="width:120px;">교체예정</th>
+            <th style="width:150px;">상태</th>
+            <th style="width:170px;">작업</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ===== 상태 패널 (statusPanel) 렌더링 =====
+function renderStatusPanel(type) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let filtered = [];
+  if (type === 'inspect') {
+    filtered = allItems.filter(item => {
+      const lastDate = item.lastInspectionDate ? new Date(item.lastInspectionDate) : null;
+      return !lastDate || (new Date(lastDate.getTime() + 30*24*3600*1000) <= today);
+    });
+  } else if (type === 'planned') {
+    filtered = allItems.filter(item => {
+      const dueDate = item.replacementDueDate ? new Date(item.replacementDueDate) : null;
+      const isFaulty = item.lastIsFaulty === true;
+      const replaceNeed = isFaulty || (dueDate && (dueDate < today || dueDate <= new Date(today.getTime() + 30*24*3600*1000)));
+      return dueDate && dueDate >= today && dueDate <= new Date(today.getTime() + 180*24*3600*1000) && !replaceNeed;
+    });
+  } else if (type === 'urgent') {
+    filtered = allItems.filter(item => {
+      const dueDate = item.replacementDueDate ? new Date(item.replacementDueDate) : null;
+      const isFaulty = item.lastIsFaulty === true;
+      return isFaulty || (dueDate && (dueDate < today || dueDate <= new Date(today.getTime() + 30*24*3600*1000)));
+    });
+  }
+  const body = document.getElementById('statusPanelBody');
+  if (!filtered.length) {
+    body.innerHTML = '<div class="text-center text-muted py-3">해당 항목이 없습니다.</div>';
+    return;
+  }
+  let rows = filtered.map((item, i) => `
+    <tr class="clickable-row js-detail-row" data-id="${item.extinguisherId}">
+      <td style="text-align:center;">${i+1}</td>
+      <td>${item.buildingName||'-'}</td>
+      <td>${item.floorName||'-'}</td>
+      <td>${item.extinguisherType||'-'}</td>
+      <td>${item.installDate ? item.installDate.slice(0,10) : '-'}</td>
+      <td>${item.replacementDueDate ? item.replacementDueDate.slice(0,10) : '-'}</td>
+    </tr>`).join('');
+  body.innerHTML = `
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light"><tr>
+          <th style="width:40px;">#</th>
+          <th>건물</th><th>층</th><th>종류</th><th>설치일</th><th>교체예정</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function openStatus(type) {
+  const panelEl = document.getElementById('statusPanel');
+  if (!panelEl) return;
+  const collapse = bootstrap.Collapse.getOrCreateInstance(panelEl);
+  const titleMap = { inspect:'점검필요 목록', planned:'교체예정 목록', urgent:'교체필요 목록' };
+  if (panelEl.classList.contains('show') && currentStatusType === type) {
+    collapse.hide(); currentStatusType = null; return;
+  }
+  currentStatusType = type;
+  document.getElementById('statusPanelTitle').textContent = titleMap[type] || '상태 목록';
+  renderStatusPanel(type);
+  collapse.show();
+}
+
+// ===== 상세 모달 (_detailsModal.cshtml 기반) =====
+async function openDetails(id) {
+  const res = await API.req(`/fire-api/extinguishers/${id}`);
+  if (!res) return;
+  const json = await res.json();
+  if (!json.ok || !json.data) { alert('상세 정보를 불러오지 못했습니다.'); return; }
+  const d = json.data;
+
+  // 점검 이력
+  let inspRows = '';
+  if (d.inspections && d.inspections.length) {
+    inspRows = d.inspections.slice(0,12).map(r => `
+      <tr>
+        <td>${r.inspectionDate ? r.inspectionDate.slice(0,10) : '-'}</td>
+        <td>${r.inspectorName || '-'}</td>
+      </tr>`).join('');
+  } else {
+    inspRows = '<tr><td colspan="2" class="text-muted text-center">점검 이력이 없습니다.</td></tr>';
+  }
+
+  const lastStatus = !d.lastInspectionDate
+    ? '<span class="text-muted">-</span>'
+    : (d.lastIsFaulty
+       ? `<span class="badge bg-danger">비정상</span> <span class="text-muted">${d.lastFaultReason||'사유 없음'}</span>`
+       : '<span class="badge bg-success">정상</span>');
+
+  document.getElementById('detailsModalBody').innerHTML = `
+    <div class="container-fluid">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="card-title text-primary mb-3">기본 정보</h6>
+              <div class="info-row mb-3">
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">건물</span>
+                  <strong>${d.buildingName||'-'}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">층</span>
+                  <strong>${d.floorName||'-'}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">종류</span>
+                  <strong>${d.extinguisherType||'-'}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">수량</span>
+                  <strong>${d.quantity||1} 개</strong>
+                </div>
+              </div>
+              <hr class="my-3">
+              <h6 class="card-title text-success mb-3">설치 정보</h6>
+              <div class="info-row mb-3">
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">제조일</span>
+                  <strong>${d.installDate ? d.installDate.slice(0,10) : '-'}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">교체예정일</span>
+                  <strong>${d.replacementDueDate ? d.replacementDueDate.slice(0,10) : '-'}</strong>
+                </div>
+              </div>
+              <hr class="my-3">
+              <h6 class="card-title text-warning mb-3">점검 정보</h6>
+              <div class="mb-2">
+                <small class="text-muted">최종 점검</small>
+                <div>
+                  ${d.lastInspectionDate
+                    ? `<strong>${d.lastInspectionDate.slice(0,10)}</strong>${d.lastInspectorName?` <span class="text-muted">/ ${d.lastInspectorName}</span>`:''}`
+                    : '<span class="text-muted">-</span>'}
+                </div>
+              </div>
+              <div class="mb-3">
+                <small class="text-muted">점검 결과</small>
+                <div>${lastStatus}</div>
+              </div>
+              <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
+                  <tr><th style="width:50%;">점검일</th><th style="width:50%;">점검자</th></tr>
+                </thead>
+                <tbody>${inspRows}</tbody>
+              </table>
+              <small class="text-muted d-block mt-1">최근 12건까지 표시됩니다.</small>
+              ${d.note ? `<hr class="my-3"><h6 class="card-title text-info mb-3">비고</h6><div class="alert alert-info mb-0"><small>${d.note}</small></div>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center" style="min-height:400px;gap:14px;">
+              ${d.imagePath
+                ? `<div class="text-center"><img src="${d.imagePath}" alt="소화기 이미지" class="img-fluid rounded shadow js-zoomable" style="max-width:100%;max-height:420px;object-fit:contain;" /><p class="text-muted mt-2 mb-0"><small>소화기 사진</small></p></div>`
+                : '<div class="text-center text-muted"><div style="font-size:4rem;opacity:.3;">🧯</div><p class="mt-2">등록된 이미지가 없습니다</p></div>'}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <style>.info-row{font-size:.95rem;}.js-zoomable{cursor:zoom-in;}</style>`;
+
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('detailsModal')).show();
+}
+
+// ===== _InspectModalScripts.cshtml 기반 =====
+(function(){
+  let _inspectExtId = null;
+
+  const updateFaultVis = () => {
+    const bad = document.getElementById('inspectBad')?.checked;
+    const wrap = document.getElementById('faultReasonWrap');
+    if (wrap) wrap.style.display = bad ? '' : 'none';
+    if (!bad) { const t=document.getElementById('faultReasonInput'); if(t) t.value=''; }
+  };
+  document.getElementById('inspectOk')?.addEventListener('change', updateFaultVis);
+  document.getElementById('inspectBad')?.addEventListener('change', updateFaultVis);
+
+  const setAiHint = (text, kind) => {
+    const el = document.getElementById('aiAnalyzeHint');
+    if (!el) return;
+    if (!text) { el.style.display='none'; el.textContent=''; return; }
+    el.style.display='';
+    el.textContent = text;
+    el.className = 'small mt-2 ' + (kind==='ok'?'text-success':kind==='warn'?'text-warning':kind==='bad'?'text-danger':'text-muted');
+  };
+
+  window.openInspectModal = (e, id) => {
+    if (e) e.stopPropagation?.();
+    _inspectExtId = id;
+    const input = document.getElementById('inspectPhotoInput');
+    if (input) input.value = '';
+    setAiHint('','');
+    const ok = document.getElementById('inspectOk');
+    if (ok) ok.checked = true;
+    updateFaultVis();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('inspectModal')).show();
+  };
+
+  document.getElementById('aiAnalyzeBtn')?.addEventListener('click', async () => {
+    const file = document.getElementById('inspectPhotoInput')?.files?.[0];
+    if (!file) { alert('AI 분석을 하려면 먼저 사진을 선택하세요.'); return; }
+    const btn = document.getElementById('aiAnalyzeBtn');
+    if (btn) btn.disabled = true;
+    setAiHint('AI가 사진을 분석 중입니다...','');
+    try {
+      const fd = new FormData();
+      fd.append('inspectionPhoto', file);
+      const r = await API.req('/fire-api/extinguishers/analyze', { method:'POST', body: fd });
+      if (!r || !r.ok) throw new Error('AI 분석 실패');
+      const data = await r.json();
+      if (data.isFaulty === true) {
+        document.getElementById('inspectBad').checked = true;
+        updateFaultVis();
+        if (data.reason) document.getElementById('faultReasonInput').value = data.reason;
+        const conf = typeof data.confidence==='number'?` · 신뢰도 ${(data.confidence*100).toFixed(0)}%`:'';
+        setAiHint(`AI 판정: 비정상${data.reason?` (${data.reason})`:''}${conf}`,'warn');
+      } else {
+        document.getElementById('inspectOk').checked = true;
+        updateFaultVis();
+        const conf = typeof data.confidence==='number'?` · 신뢰도 ${(data.confidence*100).toFixed(0)}%`:'';
+        setAiHint(`AI 판정: 정상${conf}`,'ok');
+      }
+    } catch(err) {
+      setAiHint('AI 분석을 사용할 수 없습니다. (수동으로 선택/입력하세요)','bad');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  document.getElementById('confirmInspectBtn')?.addEventListener('click', async () => {
+    if (!_inspectExtId) return;
+    const isFaulty = document.getElementById('inspectBad')?.checked === true;
+    const faultReason = (document.getElementById('faultReasonInput')?.value||'').trim();
+    if (isFaulty && !faultReason) {
+      alert('비정상인 경우 고장 사유를 입력해야 합니다.');
+      document.getElementById('faultReasonInput')?.focus(); return;
+    }
+    const btn = document.getElementById('confirmInspectBtn');
+    if (btn) btn.disabled = true;
+    try {
+      // 소화기 점검 API: POST /fire-api/extinguishers/inspect (JSON Body)
+      const body = { extinguisherId: _inspectExtId, isFaulty, faultReason };
+      const r = await API.req('/fire-api/extinguishers/inspect', { method:'POST', body });
+      if (!r || !r.ok) { const t=await r?.text().catch(()=>''); alert(t||`점검 처리 실패(${r?.status})`); return; }
+      const data = await r.json().catch(()=>null);
+      if (data && data.ok === false) { alert(data?.message||'점검 처리 실패'); return; }
+      bootstrap.Modal.getInstance(document.getElementById('inspectModal'))?.hide();
+      bootstrap.Toast.getOrCreateInstance(document.getElementById('inspectToast'),{delay:2000}).show();
+      document.dispatchEvent(new CustomEvent('inspection:completed',{detail:{extinguisherId:_inspectExtId}}));
+    } catch(err) {
+      alert('점검 처리 실패: '+(err?.message||err));
+    } finally {
+      if (btn) btn.disabled = false;
+      _inspectExtId = null;
+    }
+  });
+})();
+
+// ===== 소화기 등록/수정 모달 (_ExtinguisherUpsertModalScripts.cshtml 기반) =====
+(function(){
+  function setVal(id, v) { const el=document.getElementById(id); if(el) el.value=(v??'').toString(); }
+
+  window.openExtinguisherUpsertModal = async function(opts) {
+    const id = Number(opts?.id || 0);
+    document.getElementById('extUpsertTitle').textContent = id ? '소화기 편집' : '소화기 추가';
+    setVal('extId', id);
+    setVal('extBuildingId', opts?.buildingId ?? '');
+    setVal('extFloorId', opts?.floorId ?? '');
+    setVal('extX', opts?.x ?? '');
+    setVal('extY', opts?.y ?? '');
+
+    if (!id) {
+      const fb = document.getElementById('filterBuildingId');
+      const ff = document.getElementById('filterFloorId');
+      if (fb && !opts?.buildingId) setVal('extBuildingId', fb.value);
+      if (ff && !opts?.floorId) setVal('extFloorId', ff.value);
+      setVal('extType','');
+      setVal('extInstallDate', new Date().toISOString().slice(0,10));
+      setVal('extQty', 1);
+      setVal('extNote','');
+      const extB = document.getElementById('extBuildingSel');
+      const extF = document.getElementById('extFloorSel');
+      if (extB) extB.value = document.getElementById('filterBuildingId')?.value || '';
+      if (extF) extF.value = document.getElementById('filterFloorId')?.value || '';
+      const file = document.getElementById('extPhoto'); if(file) file.value='';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('extUpsertModal')).show();
+      return;
+    }
+
+    try {
+      const res = await API.req(`/fire-api/extinguishers/${id}`);
+      if (!res) return;
+      const json = await res.json();
+      const data = json.data;
+      setVal('extBuildingId', data.buildingId);
+      setVal('extFloorId', data.floorId);
+      setVal('extX', data.x ?? '');
+      setVal('extY', data.y ?? '');
+      setVal('extType', data.extinguisherType);
+      setVal('extInstallDate', data.installDate ? data.installDate.slice(0,10) : '');
+      setVal('extQty', data.quantity ?? 1);
+      setVal('extNote', data.note ?? '');
+      const extB = document.getElementById('extBuildingSel');
+      const extF = document.getElementById('extFloorSel');
+      if (extB) extB.value = String(data.buildingId||'');
+      if (extF) extF.value = String(data.floorId||'');
+      const file = document.getElementById('extPhoto'); if(file) file.value='';
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('extUpsertModal')).show();
+    } catch(err) {
+      alert('소화기 로드 실패: '+(err?.message||err));
+    }
+  };
+
+  document.getElementById('extBuildingSel')?.addEventListener('change', () => {
+    const sel = document.getElementById('extBuildingSel');
+    setVal('extBuildingId', sel?.value||'');
+  });
+  document.getElementById('extFloorSel')?.addEventListener('change', () => {
+    const sel = document.getElementById('extFloorSel');
+    setVal('extFloorId', sel?.value||'');
+  });
+
+  document.getElementById('extSaveBtn')?.addEventListener('click', async function(){
+    const saveBtn = document.getElementById('extSaveBtn');
+    saveBtn.disabled = true;
+    try {
+      const id = Number(document.getElementById('extId')?.value || 0);
+      const extBSel = document.getElementById('extBuildingSel');
+      const extFSel = document.getElementById('extFloorSel');
+      const body = {
+        extinguisherId: id || undefined,
+        buildingId: parseInt(extBSel?.value || document.getElementById('extBuildingId')?.value || '0'),
+        floorId: parseInt(extFSel?.value || document.getElementById('extFloorId')?.value || '0'),
+        extinguisherType: document.getElementById('extType')?.value || '',
+        installDate: document.getElementById('extInstallDate')?.value || '',
+        quantity: parseInt(document.getElementById('extQty')?.value || '1'),
+        note: document.getElementById('extNote')?.value || '',
+        x: document.getElementById('extX')?.value ? parseFloat(document.getElementById('extX').value) : null,
+        y: document.getElementById('extY')?.value ? parseFloat(document.getElementById('extY').value) : null,
+      };
+      if (!body.buildingId || !body.floorId) { alert('건물과 층을 선택해주세요.'); return; }
+      if (!body.extinguisherType) { alert('소화기 종류를 입력해주세요.'); return; }
+      if (!body.installDate) { alert('제조일을 입력해주세요.'); return; }
+
+      const r = await API.req('/fire-api/extinguishers', { method:'POST', body });
+      if (!r || !r.ok) { const t=await r?.text().catch(()=>''); alert('저장 실패: '+t); return; }
+      bootstrap.Modal.getInstance(document.getElementById('extUpsertModal'))?.hide();
+      document.dispatchEvent(new CustomEvent('extinguisher:upsertCompleted'));
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+})();
+
+// ===== 이벤트 위임 (클릭) =====
+document.addEventListener('click', async (ev) => {
+  const inspBtn = ev.target.closest('.js-inspect');
+  if (inspBtn) {
+    ev.preventDefault();
+    const id = Number(inspBtn.getAttribute('data-id')||'0');
+    if (id) window.openInspectModal(ev, id);
+    return;
+  }
+
+  const editBtn = ev.target.closest('.js-ext-edit');
+  if (editBtn) {
+    ev.preventDefault();
+    const id = Number(editBtn.getAttribute('data-id')||'0');
+    if (id) window.openExtinguisherUpsertModal({ id });
+    return;
+  }
+
+  const row = ev.target.closest('tr.clickable-row[data-id]');
+  if (row) {
+    if (ev.target.closest('a,button')) return;
+    const id = Number(row.getAttribute('data-id')||'0');
+    if (id) openDetails(id);
+    return;
+  }
+
+  const zoomable = ev.target.closest('.js-zoomable');
+  if (zoomable) {
+    const src = zoomable.getAttribute('data-zoom-src') || zoomable.getAttribute('src');
+    if (src) {
+      document.getElementById('detailImageZoomTarget').src = src;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('detailImageZoomModal')).show();
+    }
+  }
+});
+
+// ===== 버튼 이벤트 =====
+document.getElementById('btnSearch')?.addEventListener('click', () => {
+  const q = document.getElementById('filterQ')?.value || '';
+  const b = document.getElementById('filterBuildingId')?.value || '';
+  const f = document.getElementById('filterFloorId')?.value || '';
+  loadExtinguishers(q, b, f);
+});
+document.getElementById('filterQ')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('btnSearch')?.click();
+});
+document.getElementById('btnReset')?.addEventListener('click', () => {
+  document.getElementById('filterQ').value = '';
+  document.getElementById('filterBuildingId').value = '';
+  document.getElementById('filterFloorId').value = '';
+  loadExtinguishers();
+});
+document.getElementById('btnStatusInspect')?.addEventListener('click', () => openStatus('inspect'));
+document.getElementById('btnStatusPlanned')?.addEventListener('click', () => openStatus('planned'));
+document.getElementById('btnStatusUrgent')?.addEventListener('click', () => openStatus('urgent'));
+document.getElementById('btnExtAdd')?.addEventListener('click', () => window.openExtinguisherUpsertModal({ id: 0 }));
+
+// 등록/점검 완료 후 새로고침
+document.addEventListener('inspection:completed', () => loadExtinguishers(
+  document.getElementById('filterQ')?.value||'',
+  document.getElementById('filterBuildingId')?.value||'',
+  document.getElementById('filterFloorId')?.value||''));
+document.addEventListener('extinguisher:upsertCompleted', () => loadExtinguishers(
+  document.getElementById('filterQ')?.value||'',
+  document.getElementById('filterBuildingId')?.value||'',
+  document.getElementById('filterFloorId')?.value||''));
+
+// ===== 초기화 =====
+(async function init() {
+  const token = localStorage.getItem('fireweb_token');
+  if (!token) { window.location.href = '/login.html'; return; }
+  renderNav();
+  if (isAdmin) {
+    const addBtn = document.getElementById('btnExtAdd');
+    if (addBtn) addBtn.style.display = '';
+  }
+  await loadExtinguishers();
+})();
+</script>
+</body>
+</html>

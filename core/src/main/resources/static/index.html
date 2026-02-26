@@ -602,7 +602,7 @@ async function loadOutdoorHydrants() {
         const json = await res.json();
         if (json.ok && json.data && json.data.content) {
             outdoorHydrants = json.data.content
-                .filter(h => h.hydrantType === 'Outdoor' && h.isActive !== false);
+                .filter(h => h.hydrantType === 'Outdoor' && h.active !== false);
         }
         renderOutdoorMarkers();
     } catch(e) {

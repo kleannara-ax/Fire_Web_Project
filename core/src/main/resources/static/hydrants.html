@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>소화전 목록 - FireWeb</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* ===== _Layout.cshtml 그대로 ===== */
+    .fireweb-navbar { position: relative; z-index: 1030; }
+    .fireweb-navbar .dropdown-menu { z-index: 1040; }
+    .fireweb-navbar .nav-link.account-link { color: #fff !important; }
+    .fireweb-navbar .brand-logos { display:flex; align-items:center; gap:8px; }
+    .fireweb-navbar .brand-logos img{ height:32px !important; width:auto !important; display:block; object-fit:contain !important; }
+
+    /* ===== _HydListTable.cshtml 그대로 ===== */
+    .table thead a,
+    .table thead a:visited,
+    .table thead a:hover,
+    .table thead a:focus {
+      color: #fff !important; text-decoration: none;
+    }
+    .table thead a:hover { text-decoration: underline; }
+    .hyd-list-table td {
+      padding-top: 8px !important; padding-bottom: 8px !important;
+      line-height: 1.2; vertical-align: middle;
+    }
+    .hyd-actions {
+      display: inline-flex; gap: 6px;
+      align-items: center; justify-content: center; white-space: nowrap;
+    }
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover { background-color: rgba(0,0,0,.04); }
+    .js-zoomable { cursor: zoom-in; }
+    .info-row { font-size: 0.95rem; }
+
+    /* ===== _HydrantUpsertModal.cshtml 도면 canvas ===== */
+    #hydMapCanvas {
+      height: 360px; overflow: hidden;
+      background: #fff; border: 1px solid #ddd; border-radius: 8px;
+    }
+    #hydPlanImg {
+      width: 100%; height: 100%; object-fit: fill; display: block;
+    }
+
+    #fwToast { position:fixed; top:16px; right:16px; z-index:2000; }
+  </style>
+</head>
+<body>
+
+<!-- ===== Navbar (_Layout.cshtml) ===== -->
+<header>
+  <nav class="navbar navbar-expand-lg navbar-dark fireweb-navbar" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="/index.html">
+        <span class="brand-logos" aria-hidden="true">
+          <img src="/images/Kleannara.PNG" alt="" onerror="this.style.display='none'" />
+          <img src="/images/KFMS.PNG" alt="" onerror="this.style.display='none'" />
+        </span>
+        <span class="visually-hidden">FireWeb</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="topNav">
+        <ul class="navbar-nav ms-3">
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/extinguishers.html">소화기 목록</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/hydrants.html">소화전 목록</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/maps/floor.html?buildingName=복지관&floorName=1층">도면</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/qr/index.html">QR코드</a></li>
+        </ul>
+        <ul class="navbar-nav ms-auto align-items-center" id="navAccountArea"></ul>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main class="container-fluid py-4">
+
+  <!-- ===== 상단 헤더 카드 (FireHydrants/Index.cshtml) ===== -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body d-flex justify-content-between align-items-center text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+      <div>
+        <h3 class="mb-1 fw-bold">소화전 목록</h3>
+        <div class="text-white-50 fw-semibold">총 <span id="totalCount">0</span> 건</div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <div class="btn-group" role="group">
+          <button type="button" class="btn btn-info text-white" id="btnStatusInspect">
+            점검필요 <span id="countInspect">(0)</span>
+          </button>
+          <button type="button" class="btn btn-danger text-white" id="btnStatusFaulty">
+            비정상 <span id="countFaulty">(0)</span>
+          </button>
+        </div>
+        <button type="button" class="btn btn-light fw-bold ms-2" id="btnHydAdd" style="display:none;"
+          onclick="window.openHydrantUpsertModal?.({ id: 0, hydrantType: 'Indoor', operationType: 'Manual' })">+ 소화전 추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 검색 필터 ===== -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-4">
+          <input id="filterQ" class="form-control" placeholder="검색어(일련번호/건물/층/구분/위치)" />
+        </div>
+        <div class="col-md-3">
+          <select id="filterBuildingId" class="form-select">
+            <option value="">-- 건물 전체 --</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select id="filterFloorId" class="form-select">
+            <option value="">-- 층 전체 --</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+          <button class="btn btn-primary w-100" type="button" id="btnSearch">검색</button>
+          <button class="btn btn-outline-secondary w-100" type="button" id="btnReset">초기화</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 상태 패널 ===== -->
+  <div class="collapse mb-4" id="statusPanel">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center bg-light">
+        <strong id="statusPanelTitle">상태 목록</strong>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#statusPanel">닫기</button>
+      </div>
+      <div class="card-body p-0" style="max-height:35vh; overflow-y:auto;">
+        <div id="statusPanelBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 메인 테이블 ===== -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0" id="mainTableWrap">
+      <div class="text-center py-5 text-muted">데이터를 불러오는 중...</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== 소화전 상세 모달 (FireHydrants/_detailsModal.cshtml 기반) ===== -->
+<div class="modal fade" id="hydrantDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">소화전 상세</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+      </div>
+      <div class="modal-body" id="hydrantDetailsModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 이미지 확대 모달 -->
+<div class="modal fade" id="hydrantDetailImageZoomModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: min(96vw, 1600px);">
+    <div class="modal-content bg-dark">
+      <div class="modal-header border-0">
+        <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-0 pb-3">
+        <div id="hydrantDetailImageZoomStage" class="position-relative mx-auto" style="width:100%; height:min(88vh,1200px);">
+          <img id="hydrantDetailImageZoomTarget" alt="확대 이미지" style="width:100%;height:100%;object-fit:contain;display:block;" />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== _HydrantInspectSimpleModal.cshtml ===== -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:3000;">
+  <div id="hydrantInspectToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="hydrantInspectToastBody">점검이 완료되었습니다.</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="hydrantInspectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">소화전 점검</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="hydrantInspectId" value="" />
+        <div class="card border-0 bg-light">
+          <div class="card-body py-2">
+            <div class="fw-semibold mb-2">점검 결과</div>
+            <div class="d-flex gap-3 align-items-center flex-wrap inspect-radio">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="hydrantInspectResult" id="hydrantInspectOk" value="ok" checked>
+                <label class="form-check-label" for="hydrantInspectOk">정상</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="hydrantInspectResult" id="hydrantInspectBad" value="bad">
+                <label class="form-check-label" for="hydrantInspectBad">비정상</label>
+              </div>
+            </div>
+            <div class="mt-2" id="hydrantFaultReasonWrap" style="display:none;">
+              <label class="form-label mb-1">고장 사유 <span class="text-danger">(필수)</span></label>
+              <textarea class="form-control" id="hydrantFaultReasonInput" rows="2" placeholder="비정상인 경우 고장 사유를 입력하세요."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+        <button class="btn btn-success" id="hydrantInspectConfirmBtn">점검 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== _HydrantUpsertModal.cshtml ===== -->
+<div class="modal fade" id="hydUpsertModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="hydUpsertTitle">소화전</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+      </div>
+      <div class="modal-body">
+        <form id="hydUpsertForm">
+          <input type="hidden" id="hydId" value="0" />
+          <input type="hidden" id="hydBuildingId" />
+          <input type="hidden" id="hydFloorId" />
+          <input type="hidden" id="hydX" />
+          <input type="hidden" id="hydY" />
+          <input type="hidden" id="hydTypeHidden" />
+
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">구분</label>
+              <select class="form-select" id="hydType">
+                <option value="Indoor">옥내</option>
+                <option value="Outdoor">옥외</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">건물</label>
+              <select class="form-select" id="hydBuildingSel">
+                <option value="">-- 건물 선택 --</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">층</label>
+              <select class="form-select" id="hydFloorSel">
+                <option value="">-- 층 선택 --</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">작동방식</label>
+              <select class="form-select" id="hydOp">
+                <option value="Auto">자동</option>
+                <option value="Manual">수동</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center">
+                <label class="form-label mb-0">도면에서 위치 선택</label>
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-outline-secondary" id="hydZoomOut">축소</button>
+                  <button type="button" class="btn btn-outline-secondary" id="hydZoomReset">원본</button>
+                  <button type="button" class="btn btn-outline-secondary" id="hydZoomIn">확대</button>
+                </div>
+              </div>
+              <div class="border rounded p-2 bg-light">
+                <div id="hydMapCanvas" class="position-relative" data-base-height="360">
+                  <img id="hydPlanImg" alt="도면" />
+                  <div id="hydMarkerLayer" style="position:absolute;inset:0;pointer-events:auto;"></div>
+                </div>
+                <div id="hydMapStatus" class="small text-danger mt-2"></div>
+                <div class="small text-muted mt-1">도면 클릭으로 위치를 지정하세요. 기존 소화전/소화기 마커도 함께 표시됩니다.</div>
+                <div class="small mt-1">선택 좌표: X <span id="hydCoordX">-</span> / Y <span id="hydCoordY">-</span></div>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">사진 등록</label>
+              <input type="file" class="form-control" id="hydPhoto" accept="image/*" />
+              <div class="form-text">선택 사항입니다.</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">위치정보 (선택)</label>
+              <input type="text" class="form-control" id="hydLocation" placeholder="위치 상세 입력" />
+              <div class="form-text">선택 입력 항목입니다.</div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+        <button type="button" class="btn btn-primary" id="hydSaveBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 수정 iframe 모달 (_HydrantEditModal.cshtml 기반) -->
+<div class="modal fade" id="hydrantEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="hydrantEditTitle">소화전 수정</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+      </div>
+      <div class="modal-body p-0" style="height:calc(100vh - 140px); min-height:680px;">
+        <iframe id="hydrantEditFrame" title="소화전 수정" style="width:100%;height:100%;border:0;" loading="lazy"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="fwToast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ===== JWT & 공용 API =====
+const API = (() => {
+  const getToken = () => localStorage.getItem('fireweb_token');
+  const getUser  = () => { try{ return JSON.parse(localStorage.getItem('fireweb_user')||'null'); }catch{ return null; } };
+  const isAdmin  = () => { const u=getUser(); return u && u.role === 'ADMIN'; };
+  async function req(url, opts={}) {
+    const token = getToken();
+    const headers = {...(opts.headers||{})};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    if (!(opts.body instanceof FormData) && opts.body && typeof opts.body==='object') {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.body);
+    }
+    const res = await fetch(url, {...opts, headers});
+    if (res.status === 401) { window.location.href='/login.html'; return null; }
+    return res;
+  }
+  return { req, getToken, getUser, isAdmin };
+})();
+
+let allItems = [];
+let currentStatusType = null;
+const isAdmin = API.isAdmin();
+
+// ===== 토스트 =====
+function showFwToast(msg, type='success') {
+  const wrap = document.getElementById('fwToast');
+  const id = 'fwToastBox';
+  let box = document.getElementById(id);
+  if (!box) { box=document.createElement('div'); box.id=id; wrap.appendChild(box); }
+  box.className=`alert alert-${type} shadow`;
+  box.style.cssText='margin:0;opacity:0;transition:opacity 500ms ease;';
+  box.textContent=msg;
+  wrap.style.cssText='position:fixed;top:16px;right:16px;z-index:2000;';
+  requestAnimationFrame(()=>{ box.style.opacity='1'; });
+  setTimeout(()=>{ box.style.opacity='0'; },2200);
+  setTimeout(()=>{ wrap.innerHTML=''; },3200);
+}
+
+// ===== 네비게이션 =====
+function renderNav() {
+  const user = API.getUser();
+  const area = document.getElementById('navAccountArea');
+  if (!area) return;
+  if (user) {
+    area.innerHTML=`
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle fw-semibold account-link" href="#" role="button" data-bs-toggle="dropdown">
+          ${user.username||'사용자'}
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="/account/index.html">내 정보</a></li>
+          ${isAdmin?'<li><a class="dropdown-item" href="/account/users.html">계정관리</a></li>':''}
+          <li><hr class="dropdown-divider" /></li>
+          <li class="px-3 pb-2"><button type="button" class="btn btn-sm btn-danger w-100" onclick="logout()">로그아웃</button></li>
+        </ul>
+      </li>`;
+  } else {
+    area.innerHTML='<li class="nav-item"><a class="btn btn-sm btn-outline-light" href="/login.html">로그인</a></li>';
+  }
+}
+function logout() {
+  localStorage.removeItem('fireweb_token');
+  localStorage.removeItem('fireweb_user');
+  window.location.href = '/login.html';
+}
+
+// ===== 건물/층 옵션 로드 =====
+function loadBuildingFloorOptions() {
+  const buildings = [...new Map(
+    allItems.filter(x=>x.buildingId&&x.buildingName).map(x=>[x.buildingId,x.buildingName])
+  ).entries()];
+  const floors = [...new Map(
+    allItems.filter(x=>x.floorId&&x.floorName).map(x=>[x.floorId,x.floorName])
+  ).entries()];
+
+  const bSel = document.getElementById('filterBuildingId');
+  const fSel = document.getElementById('filterFloorId');
+  bSel.innerHTML='<option value="">-- 건물 전체 --</option>'+buildings.map(([id,n])=>`<option value="${id}">${n}</option>`).join('');
+  fSel.innerHTML='<option value="">-- 층 전체 --</option>'+floors.map(([id,n])=>`<option value="${id}">${n}</option>`).join('');
+
+  const hb = document.getElementById('hydBuildingSel');
+  const hf = document.getElementById('hydFloorSel');
+  if (hb) hb.innerHTML='<option value="">-- 건물 선택 --</option>'+buildings.map(([id,n])=>`<option value="${id}">${n}</option>`).join('');
+  if (hf) hf.innerHTML='<option value="">-- 층 선택 --</option>'+floors.map(([id,n])=>`<option value="${id}">${n}</option>`).join('');
+}
+
+// ===== 소화전 목록 로드 =====
+async function loadHydrants(q='', buildingId='', floorId='') {
+  const params = new URLSearchParams({ size:200, page:0 });
+  if (q) params.set('q',q);
+  if (buildingId) params.set('buildingId',buildingId);
+  if (floorId) params.set('floorId',floorId);
+  const res = await API.req(`/fire-api/hydrants?${params}`);
+  if (!res) return;
+  const json = await res.json();
+  if (json.ok && json.data) {
+    allItems = json.data.content || [];
+  } else {
+    allItems = [];
+  }
+  loadBuildingFloorOptions();
+  renderTable(allItems);
+  updateBucketCounts();
+}
+
+function updateBucketCounts() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let inspectCount=0, faultyCount=0;
+  allItems.forEach(item => {
+    const lastDate = item.lastInspectionDate ? new Date(item.lastInspectionDate) : null;
+    if (!lastDate || new Date(lastDate.getTime()+30*24*3600*1000)<=today) inspectCount++;
+    if (item.lastIsFaulty===true) faultyCount++;
+  });
+  document.getElementById('totalCount').textContent = allItems.length;
+  document.getElementById('countInspect').textContent = `(${inspectCount})`;
+  document.getElementById('countFaulty').textContent = `(${faultyCount})`;
+}
+
+// ===== 메인 테이블 렌더링 (_HydListTable.cshtml 기반) =====
+function typeText(t) { return String(t||'').toLowerCase()==='outdoor'?'옥외':'옥내'; }
+function opText(t) { return String(t||'').toLowerCase()==='auto'?'자동':'수동'; }
+
+function renderTable(items) {
+  const wrap = document.getElementById('mainTableWrap');
+  if (!items.length) {
+    wrap.innerHTML='<div class="text-center text-muted py-4">조회 결과가 없습니다.</div>';
+    return;
+  }
+  let rows = items.map(x => {
+    const loc = x.hydrantType==='Outdoor'
+      ? (x.locationDescription||'-')
+      : (x.x!=null&&x.y!=null ? `도면좌표 ${Number(x.x).toFixed(2)}%, ${Number(x.y).toFixed(2)}%` : '-');
+    let statusBadge = '';
+    if (x.lastInspectionDate==null) statusBadge='<span class="text-muted">-</span>';
+    else if (x.lastIsFaulty===true) statusBadge='<span class="badge bg-danger">비정상</span>';
+    else statusBadge='<span class="badge bg-success">정상</span>';
+    return `
+      <tr class="clickable-row" data-id="${x.hydrantId}">
+        <td style="text-align:center;">${x.hydrantId}</td>
+        <td class="text-truncate">${x.serialNumber||'-'}</td>
+        <td class="text-truncate">${typeText(x.hydrantType)}</td>
+        <td class="text-truncate">${opText(x.operationType)}</td>
+        <td class="text-truncate">${x.buildingName||'-'}</td>
+        <td class="text-truncate">${x.floorName||'-'}</td>
+        <td class="text-truncate">${loc}</td>
+        <td>${x.lastInspectionDate?x.lastInspectionDate.slice(0,10):'-'}</td>
+        <td class="text-truncate">${x.lastInspectorName||'-'}</td>
+        <td>${statusBadge}</td>
+        <td class="text-truncate">${x.lastIsFaulty===true?(x.lastFaultReason||'-'):'-'}</td>
+        <td class="text-center">
+          <div class="hyd-actions">
+            ${isAdmin?`<button type="button" class="btn btn-sm btn-outline-primary js-hydrant-edit" data-id="${x.hydrantId}">수정</button>`:''}
+            <button type="button" class="btn btn-sm btn-success js-hydrant-inspect" data-id="${x.hydrantId}">점검</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML=`
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 hyd-list-table" style="table-layout:fixed;">
+        <thead class="table-dark">
+          <tr>
+            <th style="width:90px;text-align:center;">소화전 ID</th>
+            <th style="width:140px;">일련번호</th>
+            <th style="width:90px;">구분</th>
+            <th style="width:90px;">방식</th>
+            <th style="width:140px;">건물</th>
+            <th style="width:110px;">층</th>
+            <th style="width:170px;">위치</th>
+            <th style="width:110px;">최종 점검</th>
+            <th style="width:110px;">점검자</th>
+            <th style="width:90px;">정상/비정상</th>
+            <th style="width:220px;">고장 사유</th>
+            <th style="width:150px;text-align:center;">관리</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ===== 상태 패널 =====
+function renderStatusPanel(type) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  let filtered = [];
+  if (type==='inspect') {
+    filtered = allItems.filter(x => {
+      const d = x.lastInspectionDate ? new Date(x.lastInspectionDate) : null;
+      return !d || new Date(d.getTime()+30*24*3600*1000)<=today;
+    });
+  } else if (type==='faulty') {
+    filtered = allItems.filter(x => x.lastIsFaulty===true);
+  }
+  const body = document.getElementById('statusPanelBody');
+  if (!filtered.length) {
+    body.innerHTML='<div class="text-center text-muted py-3">해당 항목이 없습니다.</div>'; return;
+  }
+  let rows = filtered.map((x,i) => `
+    <tr class="clickable-row" data-id="${x.hydrantId}">
+      <td style="text-align:center;">${i+1}</td>
+      <td>${x.serialNumber||'-'}</td>
+      <td>${typeText(x.hydrantType)}</td>
+      <td>${x.buildingName||'-'}</td>
+      <td>${x.lastInspectionDate?x.lastInspectionDate.slice(0,10):'-'}</td>
+      <td>${x.lastIsFaulty===true?'비정상':'정상'}</td>
+    </tr>`).join('');
+  body.innerHTML=`
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light"><tr>
+          <th style="width:40px;">#</th><th>일련번호</th><th>구분</th><th>건물</th><th>최종점검</th><th>상태</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function openStatus(type) {
+  const panelEl = document.getElementById('statusPanel');
+  if (!panelEl) return;
+  const collapse = bootstrap.Collapse.getOrCreateInstance(panelEl);
+  const titleMap = { inspect:'점검필요 목록', faulty:'비정상 목록' };
+  if (panelEl.classList.contains('show') && currentStatusType===type) {
+    collapse.hide(); currentStatusType=null; return;
+  }
+  currentStatusType = type;
+  document.getElementById('statusPanelTitle').textContent = titleMap[type]||'상태 목록';
+  renderStatusPanel(type);
+  collapse.show();
+}
+
+// ===== 소화전 상세 모달 (FireHydrants/_detailsModal.cshtml 기반) =====
+async function openHydrantDetails(id) {
+  const res = await API.req(`/fire-api/hydrants/${id}`);
+  if (!res) return;
+  const json = await res.json();
+  if (!json.ok || !json.data) { alert('상세 정보를 불러오지 못했습니다.'); return; }
+  const d = json.data;
+
+  let inspRows = '';
+  if (d.inspections && d.inspections.length) {
+    inspRows = d.inspections.slice(0,12).map(r=>`
+      <tr>
+        <td>${r.inspectionDate?r.inspectionDate.slice(0,10):'-'}</td>
+        <td>${r.inspectorName||'-'}</td>
+      </tr>`).join('');
+  } else {
+    inspRows='<tr><td colspan="2" class="text-muted text-center">점검 이력이 없습니다.</td></tr>';
+  }
+
+  const lastStatus = !d.lastInspectionDate
+    ? '<span class="text-muted">-</span>'
+    : (d.lastIsFaulty
+       ? `<span class="badge bg-danger">비정상</span> <span class="text-muted">${d.lastFaultReason||'사유 없음'}</span>`
+       : '<span class="badge bg-success">정상</span>');
+
+  const coordStr = (d.x!=null&&d.y!=null) ? `${Number(d.x).toFixed(2)}%, ${Number(d.y).toFixed(2)}%` : '-';
+  const hydTypeLabel = d.hydrantType==='Outdoor'?'옥외':'옥내';
+  const opLabel = d.operationType==='Auto'?'자동':'수동';
+
+  document.getElementById('hydrantDetailsModalBody').innerHTML = `
+    <div class="container-fluid">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="card-title text-primary mb-3">기본 정보</h6>
+              <div class="info-row mb-3">
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">일련번호</span>
+                  <strong>${d.serialNumber||'-'}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">구분</span>
+                  <strong>${hydTypeLabel}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">작동방식</span>
+                  <strong>${opLabel}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">건물</span>
+                  <strong>${d.buildingName||'-'}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">층</span>
+                  <strong>${d.floorName||'-'}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">좌표</span>
+                  <strong>${coordStr}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                  <span class="badge bg-light text-dark me-2" style="width:100px;">위치(상세)</span>
+                  <strong>${d.locationDescription||'-'}</strong>
+                </div>
+              </div>
+              <hr class="my-3">
+              <h6 class="card-title text-warning mb-3">점검 정보</h6>
+              <div class="mb-2">
+                <small class="text-muted">최종 점검</small>
+                <div>
+                  ${d.lastInspectionDate
+                    ? `<strong>${d.lastInspectionDate.slice(0,10)}</strong>${d.lastInspectorName?` <span class="text-muted">/ ${d.lastInspectorName}</span>`:''}`
+                    : '<span class="text-muted">-</span>'}
+                </div>
+              </div>
+              <div class="mb-3">
+                <small class="text-muted">점검 결과</small>
+                <div>${lastStatus}</div>
+              </div>
+              <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
+                  <tr><th style="width:50%;">점검일</th><th style="width:50%;">점검자</th></tr>
+                </thead>
+                <tbody>${inspRows}</tbody>
+              </table>
+              <small class="text-muted d-block mt-1">최근 12건까지 표시됩니다.</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center" style="min-height:400px;gap:14px;">
+              ${d.imagePath
+                ? `<div class="text-center"><img src="${d.imagePath}" alt="소화전 이미지" class="img-fluid rounded shadow js-zoomable" style="max-width:100%;max-height:420px;object-fit:contain;" /><p class="text-muted mt-2 mb-0"><small>소화전 사진</small></p></div>`
+                : '<div class="text-center text-muted"><div style="font-size:4rem;opacity:.3;">🚒</div><p class="mt-2">등록된 이미지가 없습니다</p></div>'}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <style>.info-row{font-size:.95rem;}.js-zoomable{cursor:zoom-in;}</style>`;
+
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('hydrantDetailsModal')).show();
+}
+
+window.openHydrantDetails = openHydrantDetails;
+
+// ===== _HydrantInspectSimpleModalScripts.cshtml 기반 =====
+(function(){
+  if (window.__hydrantInspectModalInit) return;
+  window.__hydrantInspectModalInit = true;
+
+  const updateReason = () => {
+    const isBad = document.getElementById('hydrantInspectBad')?.checked===true;
+    const wrap = document.getElementById('hydrantFaultReasonWrap');
+    if (wrap) wrap.style.display = isBad ? '' : 'none';
+    if (!isBad) { const t=document.getElementById('hydrantFaultReasonInput'); if(t) t.value=''; }
+  };
+  document.getElementById('hydrantInspectOk')?.addEventListener('change', updateReason);
+  document.getElementById('hydrantInspectBad')?.addEventListener('change', updateReason);
+
+  window.openHydrantInspectModal = (e, hydrantId) => {
+    if (e) e.stopPropagation?.();
+    const id = Number(hydrantId||0);
+    if (!id) { alert('HydrantId가 올바르지 않습니다.'); return; }
+    const hid = document.getElementById('hydrantInspectId');
+    if (hid) hid.value = String(id);
+    const ok = document.getElementById('hydrantInspectOk');
+    if (ok) ok.checked=true;
+    updateReason();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('hydrantInspectModal')).show();
+  };
+
+  document.getElementById('hydrantInspectConfirmBtn')?.addEventListener('click', async () => {
+    const id = Number(document.getElementById('hydrantInspectId')?.value||0);
+    if (!id) return;
+    const isFaulty = document.getElementById('hydrantInspectBad')?.checked===true;
+    const faultReason = (document.getElementById('hydrantFaultReasonInput')?.value||'').trim();
+    if (isFaulty && !faultReason) {
+      alert('비정상인 경우 고장 사유를 입력해야 합니다.');
+      document.getElementById('hydrantFaultReasonInput')?.focus(); return;
+    }
+    const btn = document.getElementById('hydrantInspectConfirmBtn');
+    if (btn) btn.disabled=true;
+    try {
+      // 소화전 점검 API: POST /fire-api/hydrants/{id}/inspect?isFaulty=...&faultReason=...
+      const params = new URLSearchParams({ isFaulty: String(isFaulty) });
+      if (faultReason) params.append('faultReason', faultReason);
+      const r = await API.req(`/fire-api/hydrants/${id}/inspect?${params}`, { method:'POST' });
+      const text = await r?.text().catch(()=>'');
+      let data=null;
+      try { data = text ? JSON.parse(text) : null; } catch{}
+      if (!r||!r.ok) { alert((data&&data.message)?data.message:(text||`점검 실패(${r?.status})`)); return; }
+      if (data&&data.ok===false) { alert(data.message||'점검 실패'); return; }
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('hydrantInspectModal')).hide();
+      bootstrap.Toast.getOrCreateInstance(document.getElementById('hydrantInspectToast'),{delay:2000}).show();
+      document.dispatchEvent(new CustomEvent('hydrant:inspectionCompleted',{detail:{hydrantId:id}}));
+    } catch(err) {
+      alert('점검 실패: '+(err?.message||err));
+    } finally {
+      if (btn) btn.disabled=false;
+    }
+  });
+})();
+
+// ===== _HydrantUpsertModalScripts.cshtml 기반 =====
+(function(){
+  const modalEl  = document.getElementById('hydUpsertModal');
+  const saveBtn  = document.getElementById('hydSaveBtn');
+  if (!modalEl||!saveBtn) return;
+
+  const typeEl     = document.getElementById('hydType');
+  const buildingSel= document.getElementById('hydBuildingSel');
+  const floorSel   = document.getElementById('hydFloorSel');
+  const mapCanvas  = document.getElementById('hydMapCanvas');
+  const planImg    = document.getElementById('hydPlanImg');
+  const markerLayer= document.getElementById('hydMarkerLayer');
+  const mapStatus  = document.getElementById('hydMapStatus');
+  const coordX     = document.getElementById('hydCoordX');
+  const coordY     = document.getElementById('hydCoordY');
+
+  const ICON_EXT      = '/images/Extinguisher.PNG';
+  const ICON_HYD_IN   = '/images/indoorfirehydrant.PNG';
+  const ICON_HYD_OUT  = '/images/outdoorfirehydrant.PNG';
+
+  let existingExt=[], existingHyd=[], selected=null, pendingSelected=null;
+  let zoom=1, panX=0, panY=0;
+  let isDragging=false, dragStartX=0, dragStartY=0, dragPanX=0, dragPanY=0, movedWhileDrag=false;
+  let openOpts={};
+
+  function setVal(id,v){ const el=document.getElementById(id); if(el) el.value=(v??'').toString(); }
+
+  function setStatus(msg, isError){
+    if (!mapStatus) return;
+    mapStatus.textContent=msg||'';
+    mapStatus.classList.toggle('text-danger', !!msg&&isError!==false);
+    mapStatus.classList.toggle('text-muted', !!msg&&isError===false);
+  }
+
+  function computeFit(){
+    const rect=mapCanvas?.getBoundingClientRect?.();
+    const cw=rect?.width||0, ch=rect?.height||0;
+    const iw=planImg?.naturalWidth||0, ih=planImg?.naturalHeight||0;
+    if(!cw||!ch||!iw||!ih) return null;
+    const w=cw*zoom, h=ch*zoom;
+    const maxPX=Math.max(0,(w-cw)/2), maxPY=Math.max(0,(h-ch)/2);
+    panX=Math.max(-maxPX,Math.min(maxPX,panX));
+    panY=Math.max(-maxPY,Math.min(maxPY,panY));
+    const ox=(cw-w)/2+panX, oy=(ch-h)/2+panY;
+    return {ox,oy,w,h};
+  }
+
+  function toPx(x,y,f){ f=f||computeFit(); if(!f) return null;
+    return {left:f.ox+f.w*(x/100), top:f.oy+f.h*(y/100)}; }
+
+  function buildMarker(x,y,icon,title,sel,f,kind){
+    const p=toPx(x,y,f); if(!p) return null;
+    const iw=planImg?.naturalWidth||f.w||1;
+    const ratio=(f.w||iw)/iw;
+    const base=kind==='ext'?35:34;
+    const size=Math.max(8,Math.round(base*ratio*(sel?1.1:1)*10)/10);
+    const el=document.createElement('button');
+    el.type='button';
+    el.style.cssText=`position:absolute;left:${p.left}px;top:${p.top}px;width:${size}px;height:${size}px;transform:translate(-50%,-50%);border:0;background:transparent;padding:0;pointer-events:auto;`;
+    el.style.filter=sel?'drop-shadow(0 0 9px rgba(255,36,36,.98))':'drop-shadow(0 0 5px rgba(0,0,0,.55))';
+    el.title=title||'';
+    el.innerHTML=`<img src="${icon}" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;pointer-events:none;">`;
+    return el;
+  }
+
+  function layoutPlan(f){
+    if(!planImg||!f) return;
+    planImg.style.cssText=`position:absolute;left:${f.ox}px;top:${f.oy}px;width:${f.w}px;height:${f.h}px;transform:none;object-fit:fill;`;
+  }
+
+  function renderMarkers(){
+    if(!markerLayer) return;
+    markerLayer.innerHTML='';
+    const f=computeFit(); if(!f) return;
+    layoutPlan(f);
+    existingExt.forEach(v=>{
+      if(v.x==null||v.y==null) return;
+      const m=buildMarker(Number(v.x),Number(v.y),ICON_EXT,`소화기 #${v.extinguisherId}`,false,f,'ext');
+      if(m) markerLayer.appendChild(m);
+    });
+    existingHyd.forEach(v=>{
+      if(v.x==null||v.y==null) return;
+      const icon=String(v.hydrantType||'').toLowerCase()==='outdoor'?ICON_HYD_OUT:ICON_HYD_IN;
+      const m=buildMarker(Number(v.x),Number(v.y),icon,`소화전 #${v.hydrantId}`,false,f,'hyd');
+      if(m) markerLayer.appendChild(m);
+    });
+    if(selected){
+      const selIcon=(typeEl?.value||'Indoor')==='Outdoor'?ICON_HYD_OUT:ICON_HYD_IN;
+      const s=buildMarker(selected.x,selected.y,selIcon,'선택 위치',true,f,'hyd');
+      if(s) markerLayer.appendChild(s);
+    }
+  }
+
+  function setCoord(x,y){
+    const rx=Number(x).toFixed(2), ry=Number(y).toFixed(2);
+    if(coordX) coordX.textContent=rx;
+    if(coordY) coordY.textContent=ry;
+    setVal('hydX',rx); setVal('hydY',ry);
+    selected={x:Number(rx),y:Number(ry)};
+    renderMarkers();
+  }
+  function clearCoord(){
+    if(coordX) coordX.textContent='-';
+    if(coordY) coordY.textContent='-';
+    setVal('hydX',''); setVal('hydY','');
+    selected=null; renderMarkers();
+  }
+
+  function syncTypeUI(){
+    const t=typeEl?.value||'Indoor';
+    const indoor=t==='Indoor';
+    if(buildingSel) buildingSel.disabled=!indoor;
+    if(floorSel) floorSel.disabled=!indoor;
+    if(!indoor){ setVal('hydBuildingId',99); setVal('hydFloorId',1); }
+  }
+
+  async function loadMapData(){
+    const t=typeEl?.value||'Indoor';
+    syncTypeUI(); clearCoord(); existingExt=[]; existingHyd=[]; panX=0; panY=0;
+    if(markerLayer) markerLayer.innerHTML='';
+
+    if(t==='Indoor'){
+      const b=parseInt(buildingSel?.value||'0',10);
+      const f=parseInt(floorSel?.value||'0',10);
+      if(!b||!f){
+        if(planImg) planImg.removeAttribute('src');
+        setStatus('옥내는 건물/층 선택이 필요합니다.',false); return;
+      }
+      setVal('hydBuildingId',b); setVal('hydFloorId',f);
+    }
+
+    setStatus('도면 로딩 중...',false);
+    // Spring Boot에는 HydMapData 핸들러가 없으므로 Maps API를 통해 도면 이미지를 가져옴
+    try {
+      const b=t==='Indoor'?parseInt(buildingSel?.value||'0',10):null;
+      const f=t==='Indoor'?parseInt(floorSel?.value||'0',10):null;
+      let mapUrl = '';
+      if (t==='Indoor' && b && f) {
+        // Maps Floor API 사용
+        const pr = new URLSearchParams({buildingId:b, floorId:f});
+        const r = await API.req(`/fire-api/maps/floor-data?${pr}`);
+        if (r && r.ok) {
+          const data = await r.json().catch(()=>null);
+          if (data && data.ok && data.data) {
+            mapUrl = data.data.planImagePath||'';
+            existingExt = Array.isArray(data.data.extinguishers) ? data.data.extinguishers : [];
+            existingHyd = Array.isArray(data.data.hydrants) ? data.data.hydrants : [];
+          }
+        }
+      }
+      if (!mapUrl) {
+        // 도면 없음
+        if(planImg) planImg.removeAttribute('src');
+        setStatus('도면 이미지를 불러올 수 없습니다.',true); return;
+      }
+      planImg.onerror=()=>setStatus('도면 이미지 로드 실패',true);
+      planImg.onload=()=>{
+        setStatus('',false);
+        renderMarkers();
+        if(pendingSelected){
+          setCoord(pendingSelected.x, pendingSelected.y);
+          pendingSelected=null;
+        }
+      };
+      planImg.src=`${mapUrl}?v=${Date.now()}`;
+    } catch(_){
+      setStatus('도면 조회 중 오류가 발생했습니다.',true);
+    }
+  }
+
+  async function loadHyd(id){
+    const r=await API.req(`/fire-api/hydrants/${id}`);
+    if(!r||!r.ok) throw new Error('소화전 로드 실패');
+    const j=await r.json();
+    return j.data;
+  }
+
+  window.openHydrantUpsertModal = async function(opts){
+    openOpts=opts||{};
+    const id=Number(opts?.id||0);
+    document.getElementById('hydUpsertTitle').textContent=id?'소화전 수정':'소화전 추가';
+    setStatus('',false);
+    setVal('hydId',id);
+    setVal('hydBuildingId',opts?.buildingId??'');
+    setVal('hydFloorId',opts?.floorId??'');
+    setVal('hydX',opts?.x??'');
+    setVal('hydY',opts?.y??'');
+    if(typeEl) typeEl.disabled=id>0;
+
+    if(!id){
+      const t=opts?.hydrantType||'Indoor';
+      setVal('hydType',t); setVal('hydTypeHidden',t);
+      if(buildingSel&&opts?.buildingId) buildingSel.value=String(opts.buildingId);
+      if(floorSel&&opts?.floorId) floorSel.value=String(opts.floorId);
+      const qx=parseFloat(String(opts?.x??'')), qy=parseFloat(String(opts?.y??''));
+      pendingSelected=(Number.isFinite(qx)&&Number.isFinite(qy))?{x:qx,y:qy}:null;
+      const fileEl=document.getElementById('hydPhoto'); if(fileEl) fileEl.value='';
+      await loadMapData();
+      bootstrap.Modal.getOrCreateInstance(modalEl).show(); return;
+    }
+    try{
+      const data=await loadHyd(id);
+      setVal('hydBuildingId',data.buildingId??'');
+      setVal('hydFloorId',data.floorId??'');
+      setVal('hydType',data.hydrantType||'Indoor');
+      setVal('hydTypeHidden',data.hydrantType||'Indoor');
+      if(typeEl) typeEl.value=data.hydrantType||'Indoor';
+      document.getElementById('hydOp').value=data.operationType||'Manual';
+      document.getElementById('hydLocation').value=data.locationDescription??'';
+      if(buildingSel&&data.buildingId) buildingSel.value=String(data.buildingId);
+      if(floorSel&&data.floorId) floorSel.value=String(data.floorId);
+      const qx=parseFloat(String(data.x??'')), qy=parseFloat(String(data.y??''));
+      pendingSelected=(Number.isFinite(qx)&&Number.isFinite(qy))?{x:qx,y:qy}:null;
+      const fileEl=document.getElementById('hydPhoto'); if(fileEl) fileEl.value='';
+      await loadMapData();
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }catch(err){
+      alert('소화전 로드 실패: '+(err?.message||err));
+    }
+  };
+
+  typeEl?.addEventListener('change', async()=>{ setVal('hydTypeHidden',typeEl.value||'Indoor'); await loadMapData(); });
+  buildingSel?.addEventListener('change', loadMapData);
+  floorSel?.addEventListener('change', loadMapData);
+  window.addEventListener('resize', renderMarkers);
+  modalEl.addEventListener('shown.bs.modal', renderMarkers);
+
+  document.getElementById('hydZoomIn')?.addEventListener('click',()=>{ zoom=Math.min(2,Number((zoom+0.2).toFixed(2))); zoom<=1?zoom=1:null; renderMarkers(); });
+  document.getElementById('hydZoomOut')?.addEventListener('click',()=>{ zoom=Math.max(1,Number((zoom-0.2).toFixed(2))); renderMarkers(); });
+  document.getElementById('hydZoomReset')?.addEventListener('click',()=>{ zoom=1; panX=0; panY=0; renderMarkers(); });
+
+  mapCanvas?.addEventListener('click',(e)=>{
+    if(movedWhileDrag){movedWhileDrag=false;return;}
+    const rect=mapCanvas.getBoundingClientRect();
+    const px=e.clientX-rect.left, py=e.clientY-rect.top;
+    const fit=computeFit(); if(!fit) return;
+    if(px<fit.ox||px>fit.ox+fit.w||py<fit.oy||py>fit.oy+fit.h) return;
+    const x=((px-fit.ox)/fit.w)*100, y=((py-fit.oy)/fit.h)*100;
+    setCoord(x,y);
+  });
+  mapCanvas?.addEventListener('mousedown',(e)=>{
+    if(e.button!==0) return;
+    isDragging=true; movedWhileDrag=false;
+    dragStartX=e.clientX; dragStartY=e.clientY;
+    dragPanX=panX; dragPanY=panY;
+    document.body.style.userSelect='none';
+    if(mapCanvas) mapCanvas.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove',(e)=>{
+    if(!isDragging) return;
+    const dx=e.clientX-dragStartX, dy=e.clientY-dragStartY;
+    if(Math.abs(dx)>2||Math.abs(dy)>2) movedWhileDrag=true;
+    panX=dragPanX+dx; panY=dragPanY+dy; renderMarkers();
+  });
+  window.addEventListener('mouseup',()=>{
+    if(!isDragging) return;
+    isDragging=false; document.body.style.userSelect='';
+    if(mapCanvas) mapCanvas.style.cursor='grab';
+  });
+  mapCanvas?.addEventListener('dragstart',(e)=>e.preventDefault());
+  if(mapCanvas) mapCanvas.style.cursor='grab';
+
+  saveBtn.addEventListener('click', async function(){
+    saveBtn.disabled=true;
+    try{
+      const typeVal=typeEl?.value||'Indoor';
+      setVal('hydTypeHidden',typeVal);
+      const x=parseFloat(document.getElementById('hydX')?.value||'');
+      const y=parseFloat(document.getElementById('hydY')?.value||'');
+      if(!Number.isFinite(x)||!Number.isFinite(y)){ alert('도면에서 위치를 선택하세요.'); return; }
+      if(typeVal==='Indoor'){
+        const b=parseInt(buildingSel?.value||'0',10);
+        const f=parseInt(floorSel?.value||'0',10);
+        if(!b||!f){ alert('옥내 소화전은 건물/층을 선택해야 합니다.'); return; }
+        setVal('hydBuildingId',b); setVal('hydFloorId',f);
+      } else {
+        setVal('hydBuildingId',99); setVal('hydFloorId',1);
+      }
+      const id=Number(document.getElementById('hydId')?.value||0);
+      const body={
+        hydrantId: id||undefined,
+        hydrantType: typeVal,
+        buildingId: parseInt(document.getElementById('hydBuildingId')?.value||'0'),
+        floorId: parseInt(document.getElementById('hydFloorId')?.value||'0'),
+        operationType: document.getElementById('hydOp')?.value||'Manual',
+        x, y,
+        locationDescription: document.getElementById('hydLocation')?.value||''
+      };
+      const r=await API.req('/fire-api/hydrants',{method:'POST',body});
+      const t=await r?.text().catch(()=>'');
+      const ct=r?.headers.get('content-type')||'';
+      let data=null;
+      if(ct.includes('application/json')){ try{data=t?JSON.parse(t):null;}catch{} }
+      if(!r||!r.ok){ alert('저장 실패: '+(data?.message||t||`HTTP ${r?.status}`)); return; }
+      if(!data){ alert('저장 실패: 응답 파싱 실패'); return; }
+      if(data.ok===false){ alert('저장 실패: '+(data.message||'알 수 없는 오류')); return; }
+      bootstrap.Modal.getInstance(modalEl)?.hide();
+      document.dispatchEvent(new CustomEvent('hydrant:upsertCompleted',{detail:{id:data.data?.hydrantId, opts:openOpts}}));
+    } finally {
+      saveBtn.disabled=false;
+    }
+  });
+})();
+
+// ===== _HydrantEditModalScripts.cshtml 기반 - iframe 편집 =====
+(function(){
+  window.openHydrantEditModal = function(id){
+    if(!id){ console.warn('HydrantId missing'); return; }
+    const frame=document.getElementById('hydrantEditFrame');
+    if(!frame) return;
+    frame.src=`/fire-hydrants/edit.html?id=${encodeURIComponent(id)}`;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('hydrantEditModal')).show();
+  };
+
+  window.addEventListener('message', function(ev){
+    const data=ev.data;
+    if(!data) return;
+    if(data==='embed-saved'||data==='fireweb:hydrant-edit-saved'||(typeof data==='object'&&data.type&&(data.type==='embed-saved'||data.type==='fireweb:hydrant-edit-saved'))){
+      const modalEl=document.getElementById('hydrantEditModal');
+      if(modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+      loadHydrants(document.getElementById('filterQ')?.value||'',document.getElementById('filterBuildingId')?.value||'',document.getElementById('filterFloorId')?.value||'');
+    }
+  });
+
+  document.getElementById('hydrantEditModal')?.addEventListener('hidden.bs.modal', ()=>{
+    const frame=document.getElementById('hydrantEditFrame');
+    if(frame) frame.src='about:blank';
+  });
+})();
+
+// ===== 이벤트 위임 =====
+document.addEventListener('click', async(ev)=>{
+  const editBtn = ev.target.closest('.js-hydrant-edit');
+  if(editBtn){
+    ev.preventDefault();
+    const id=parseInt(editBtn.getAttribute('data-id')||'0',10);
+    if(id>0) window.openHydrantUpsertModal?.({id});
+    return;
+  }
+  const inspBtn = ev.target.closest('.js-hydrant-inspect');
+  if(inspBtn){
+    ev.preventDefault();
+    const id=parseInt(inspBtn.getAttribute('data-id')||'0',10);
+    if(id>0) window.openHydrantInspectModal?.(null,id);
+    return;
+  }
+  const row = ev.target.closest('tr.clickable-row[data-id]');
+  if(row){
+    if(ev.target.closest('a,button')) return;
+    const id=parseInt(row.getAttribute('data-id')||'0',10);
+    if(id>0) openHydrantDetails(id);
+    return;
+  }
+  const zoomable = ev.target.closest('.js-zoomable');
+  if(zoomable){
+    const src=zoomable.getAttribute('data-zoom-src')||zoomable.getAttribute('src');
+    if(src){
+      document.getElementById('hydrantDetailImageZoomTarget').src=src;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('hydrantDetailImageZoomModal')).show();
+    }
+  }
+});
+
+// ===== 버튼 이벤트 =====
+document.getElementById('btnSearch')?.addEventListener('click',()=>{
+  loadHydrants(document.getElementById('filterQ')?.value||'',document.getElementById('filterBuildingId')?.value||'',document.getElementById('filterFloorId')?.value||'');
+});
+document.getElementById('filterQ')?.addEventListener('keydown',(e)=>{ if(e.key==='Enter') document.getElementById('btnSearch')?.click(); });
+document.getElementById('btnReset')?.addEventListener('click',()=>{
+  document.getElementById('filterQ').value='';
+  document.getElementById('filterBuildingId').value='';
+  document.getElementById('filterFloorId').value='';
+  loadHydrants();
+});
+document.getElementById('btnStatusInspect')?.addEventListener('click',()=>openStatus('inspect'));
+document.getElementById('btnStatusFaulty')?.addEventListener('click',()=>openStatus('faulty'));
+
+// 점검/저장 완료 후 갱신
+const reload = () => loadHydrants(
+  document.getElementById('filterQ')?.value||'',
+  document.getElementById('filterBuildingId')?.value||'',
+  document.getElementById('filterFloorId')?.value||'');
+document.addEventListener('hydrant:upsertCompleted', reload);
+document.addEventListener('hydrant:inspectionCompleted', reload);
+
+// ===== 초기화 =====
+(async function init(){
+  const token = localStorage.getItem('fireweb_token');
+  if(!token){ window.location.href='/login.html'; return; }
+  renderNav();
+  if(isAdmin){
+    const addBtn=document.getElementById('btnHydAdd');
+    if(addBtn) addBtn.style.display='';
+  }
+  await loadHydrants();
+  // URL에 edit= 파라미터가 있으면 수정 모달 오픈
+  const editId = new URLSearchParams(window.location.search).get('edit');
+  if(editId && isAdmin) {
+    window.openHydrantUpsertModal?.({id: parseInt(editId,10)});
+  }
+})();
+</script>
+</body>
+</html>
