@@ -206,7 +206,13 @@
 <script>
 (function(){
   const API_BASE = '/fire-api';
-  let token = localStorage.getItem('fw_token') || '';
+  let token = localStorage.getItem('fireweb_token') || '';
+
+  // 토큰 없으면 로그인 페이지로
+  if (!token) {
+    window.location.href = '/login.html?returnUrl=/qr';
+  }
+
   let buildings = [];
   let floors = [];
 
@@ -217,7 +223,12 @@
 
   async function apiFetch(url, opts = {}) {
     const res = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
-    if (res.status === 401) { window.location.href = '/login.html'; return null; }
+    if (res.status === 401) {
+      localStorage.removeItem('fireweb_token');
+      localStorage.removeItem('fireweb_user');
+      window.location.href = '/login.html?returnUrl=/qr';
+      return null;
+    }
     return res.json();
   }
 
@@ -404,17 +415,21 @@
   function renderNav() {
     const area = document.getElementById('navAccountArea');
     if (!area) return;
-    const user = localStorage.getItem('fw_user');
-    if (token && user) {
+    const user = localStorage.getItem('fireweb_user');
+    let displayName = '';
+    if (user) {
+      try { displayName = JSON.parse(user).displayName || JSON.parse(user).username || ''; } catch(e) { displayName = ''; }
+    }
+    if (token && displayName) {
       area.innerHTML = `<li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle account-link" href="#" data-bs-toggle="dropdown">${escHtml(user)}</a>
+        <a class="nav-link dropdown-toggle account-link" href="#" data-bs-toggle="dropdown">${escHtml(displayName)}</a>
         <ul class="dropdown-menu dropdown-menu-end">
           <li><a class="dropdown-item" href="#" id="btnLogout">로그아웃</a></li>
         </ul>
       </li>`;
       document.getElementById('btnLogout')?.addEventListener('click', () => {
-        localStorage.removeItem('fw_token');
-        localStorage.removeItem('fw_user');
+        localStorage.removeItem('fireweb_token');
+        localStorage.removeItem('fireweb_user');
         window.location.href = '/login.html';
       });
     } else {

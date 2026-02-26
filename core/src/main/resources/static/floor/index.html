@@ -397,48 +397,7 @@
     .fl-modal .btn-confirm { background: var(--primary); color: #fff; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.88rem; font-weight: 600; }
     .fl-modal .btn-confirm.blue { background: var(--admin-color); }
 
-    /* 인증 오버레이 */
-    .fl-auth-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 2000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .fl-auth-box {
-      background: #fff;
-      border-radius: 12px;
-      padding: 28px 32px;
-      min-width: 300px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-      text-align: center;
-    }
-    .fl-auth-box h2 { font-size: 1.15rem; margin-bottom: 8px; color: var(--primary); }
-    .fl-auth-box p { font-size: 0.85rem; color: var(--muted); margin-bottom: 20px; }
-    .fl-auth-box input {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 0.95rem;
-      margin-bottom: 12px;
-    }
-    .fl-auth-box input:focus { outline: none; border-color: var(--primary); }
-    .fl-auth-box .btn-login {
-      width: 100%;
-      padding: 10px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .fl-auth-box .btn-login:hover { background: var(--primary-dark); }
-    .fl-auth-box .auth-err { color: var(--primary); font-size: 0.82rem; margin-top: 8px; display: none; }
+    /* 인증 오버레이 (사용 안 함 - login.html 리다이렉트 방식으로 교체) */
 
     /* 반응형 */
     @media (max-width: 700px) {
@@ -499,23 +458,12 @@
 </head>
 <body>
 
-<!-- 인증 오버레이 -->
-<div class="fl-auth-overlay" id="authOverlay">
-  <div class="fl-auth-box">
-    <h2>🔐 FireWeb 로그인</h2>
-    <p>도면 관리 기능을 사용하려면 로그인이 필요합니다.</p>
-    <input type="text" id="authUsername" placeholder="아이디" autocomplete="username" />
-    <input type="password" id="authPassword" placeholder="비밀번호" autocomplete="current-password"
-           onkeydown="if(event.key==='Enter') doLogin()" />
-    <button class="btn-login" onclick="doLogin()">로그인</button>
-    <div class="auth-err" id="authErr">아이디 또는 비밀번호가 올바르지 않습니다.</div>
-  </div>
-</div>
-
 <!-- 헤더 -->
 <header class="fl-header">
   <button class="btn-back" onclick="location.href='/'">← 메인</button>
   <h1>🗺️ 층 도면 매핑</h1>
+  <span id="headerUser" style="font-size:0.82rem; opacity:0.85;"></span>
+  <button class="btn-back" onclick="doLogout()">로그아웃</button>
 </header>
 
 <!-- 메인 레이아웃 -->
@@ -736,53 +684,29 @@
     // 지도 이벤트 등록
     initMapEvents();
 
-    // 토큰 확인 후 진행
-    token = localStorage.getItem('jwtToken');
+    // fireweb_token 확인 → 없으면 login.html?returnUrl=/floor 으로 이동
+    token = localStorage.getItem('fireweb_token');
     if (!token) {
-      showAuthOverlay();
-    } else {
-      onAuthenticated();
+      window.location.href = '/login.html?returnUrl=/floor';
+      return;
     }
+    onAuthenticated();
   });
 
   /* ─────────────────────────────────────────
-     인증
+     인증 (login.html 리다이렉트 방식)
+     401 응답 시 → localStorage 토큰 제거 후 login.html 이동
   ───────────────────────────────────────── */
-  function showAuthOverlay() {
-    document.getElementById('authOverlay').style.display = 'flex';
+  function redirectToLogin() {
+    localStorage.removeItem('fireweb_token');
+    localStorage.removeItem('fireweb_user');
+    window.location.href = '/login.html?returnUrl=/floor';
   }
-  function hideAuthOverlay() {
-    document.getElementById('authOverlay').style.display = 'none';
-  }
 
-  window.doLogin = async function() {
-    const username = document.getElementById('authUsername').value.trim();
-    const password = document.getElementById('authPassword').value;
-    const errEl = document.getElementById('authErr');
-    errEl.style.display = 'none';
-
-    if (!username || !password) { errEl.style.display = 'block'; errEl.textContent = '아이디/비밀번호를 입력하세요.'; return; }
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (res.ok && data.data && data.data.token) {
-        token = data.data.token;
-        localStorage.setItem('jwtToken', token);
-        hideAuthOverlay();
-        onAuthenticated();
-      } else {
-        errEl.style.display = 'block';
-        errEl.textContent = data.message || '로그인 실패';
-      }
-    } catch(e) {
-      errEl.style.display = 'block';
-      errEl.textContent = '서버 연결 오류';
-    }
+  window.doLogout = function() {
+    localStorage.removeItem('fireweb_token');
+    localStorage.removeItem('fireweb_user');
+    window.location.href = '/login.html';
   };
 
   function onAuthenticated() {
@@ -794,6 +718,13 @@
         ? roles.some(r => r === 'ROLE_ADMIN' || r === 'ADMIN')
         : (roles === 'ROLE_ADMIN' || roles === 'ADMIN');
     } catch(e) { isAdmin = false; }
+
+    // 사용자 이름 표시
+    try {
+      const user = JSON.parse(localStorage.getItem('fireweb_user') || '{}');
+      const name = user.displayName || user.username || '';
+      if (name) document.getElementById('headerUser').textContent = name + (isAdmin ? ' (관리자)' : '');
+    } catch(e) {}
 
     if (isAdmin) {
       document.getElementById('adminBtns').style.display = 'flex';
@@ -809,7 +740,7 @@
   async function loadJumpTargets() {
     try {
       const res = await authFetch('/fire-api/floor/data');
-      if (!res.ok) { if (res.status === 401) { showAuthOverlay(); return; } throw new Error(); }
+      if (!res.ok) { if (res.status === 401) { redirectToLogin(); return; } throw new Error(); }
       const data = await res.json();
       if (!data.data) return;
 
@@ -855,7 +786,7 @@
 
     try {
       const res = await authFetch(`/fire-api/floor/data?buildingId=${buildingId}&floorId=${floorId}`);
-      if (!res.ok) { if (res.status === 401) { showAuthOverlay(); return; } throw new Error(); }
+      if (!res.ok) { if (res.status === 401) { redirectToLogin(); return; } throw new Error(); }
       const data = await res.json();
       if (!data.data) throw new Error();
 
@@ -1488,11 +1419,16 @@
   /* ─────────────────────────────────────────
      유틸
   ───────────────────────────────────────── */
-  function authFetch(url, opts) {
+  async function authFetch(url, opts) {
     opts = opts || {};
     opts.headers = opts.headers || {};
     if (token) opts.headers['Authorization'] = 'Bearer ' + token;
-    return fetch(url, opts);
+    const res = await fetch(url, opts);
+    if (res.status === 401) {
+      redirectToLogin();
+      return res;
+    }
+    return res;
   }
 
   function openModal(id) { document.getElementById(id).classList.add('open'); }

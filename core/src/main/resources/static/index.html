@@ -322,7 +322,7 @@
         <div class="menu-title">📌 메뉴</div>
         <a class="menu-btn" href="/extinguishers.html">🧯 소화기 목록</a>
         <a class="menu-btn" href="/hydrants.html">🚒 소화전 목록</a>
-        <a class="menu-btn" href="/maps/floor.html?buildingName=복지관&floorName=1층">🗺️ 도면</a>
+        <a class="menu-btn" href="/floor?buildingName=복지관&floorName=1층">🗺️ 도면</a>
         <a class="menu-btn" href="/m/map.html">📱 모바일 화면</a>
         <a class="menu-btn" href="/qr/index.html">🔒 QR코드 확인</a>
 
@@ -762,7 +762,7 @@ function openPopupNearEvent(e, zoneName, floorsCsv) {
             const floor = btn.getAttribute('data-floor') || '';
             const b = (zoneName || '').trim();
             const f = (floor || '').trim();
-            const url = `/maps/floor.html?buildingName=${encodeURIComponent(b)}&floorName=${encodeURIComponent(f)}`;
+            const url = `/floor?buildingName=${encodeURIComponent(b)}&floorName=${encodeURIComponent(f)}`;
             window.location.href = url;
         });
     });
