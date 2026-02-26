@@ -232,5 +232,5 @@ INSERT IGNORE INTO floor (floor_id, floor_name, sort_order) VALUES
 -- BCrypt hash of 'admin1234!' with strength 10
 INSERT IGNORE INTO web_user (username, display_name, password_hash, role, is_active)
 VALUES ('admin', '시스템 관리자',
-        '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+        '$2a$10$Zr1F9jy9WKVRUq6rmG1LzOejuK.umuuQrM5h1W9CUbm2d1wN2hlGm',
         'ADMIN', 1);
