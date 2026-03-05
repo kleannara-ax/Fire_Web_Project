@@ -7,30 +7,17 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
 
-/**
- * 사용자 인증/관리 API Controller
- * <p>
- * 기존 ASP.NET Pages/Login, Pages/Account 대응
- * URL: /api/auth/**, /api/admin/users/**
- */
 @RestController
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
 
-    /**
-     * POST /api/auth/login
-     * 로그인 - JWT 토큰 발급
-     * <p>
-     * 기존 ASP.NET: POST /Login
-     */
     @PostMapping("/api/auth/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest request) {
@@ -38,12 +25,6 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    /**
-     * POST /api/auth/change-password
-     * 비밀번호 변경 (로그인 사용자 본인)
-     * <p>
-     * 기존 ASP.NET: POST /Account?handler=ChangePassword
-     */
     @PostMapping("/api/auth/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
@@ -52,24 +33,17 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
-    /**
-     * GET /api/admin/users
-     * 전체 사용자 목록 (Admin 전용)
-     * <p>
-     * 기존 ASP.NET: GET /Account/Users
-     */
+    @GetMapping("/api/auth/me")
+    public ResponseEntity<ApiResponse<UserResponse>> me(Principal principal) {
+        return ResponseEntity.ok(ApiResponse.success(userService.getCurrentUser(principal.getName())));
+    }
+
     @GetMapping("/api/admin/users")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
         return ResponseEntity.ok(ApiResponse.success(userService.getAllUsers()));
     }
 
-    /**
-     * POST /api/admin/users
-     * 사용자 등록 (Admin 전용)
-     * <p>
-     * 기존 ASP.NET: POST /Account/Users?handler=Create
-     */
     @PostMapping("/api/admin/users")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserResponse>> createUser(
@@ -78,10 +52,35 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    /**
-     * DELETE /api/admin/users/{userId}
-     * 사용자 비활성화 (Admin 전용)
-     */
+    @PatchMapping("/api/admin/users/{userId}/display-name")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserResponse>> updateDisplayName(
+            @PathVariable Long userId,
+            @Valid @RequestBody UpdateDisplayNameRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                userService.updateDisplayName(userId, request.getDisplayName())
+        ));
+    }
+
+    @PostMapping("/api/admin/users/{userId}/reset-password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @PathVariable Long userId,
+            @Valid @RequestBody AdminResetPasswordRequest request) {
+        userService.adminResetPassword(userId, request.getNewPassword(), request.getConfirmPassword());
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @PatchMapping("/api/admin/users/{userId}/active")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<UserResponse>> setActive(
+            @PathVariable Long userId,
+            @RequestBody UpdateUserActiveRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(
+                userService.setUserActive(userId, request.isActive())
+        ));
+    }
+
     @DeleteMapping("/api/admin/users/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deactivateUser(@PathVariable Long userId) {

@@ -4,8 +4,14 @@ import com.company.core.exception.BusinessException;
 import com.company.core.exception.ResourceNotFoundException;
 import com.company.module.fire.dto.FireHydrantResponse;
 import com.company.module.fire.dto.FireHydrantSaveRequest;
-import com.company.module.fire.entity.*;
-import com.company.module.fire.repository.*;
+import com.company.module.fire.entity.Building;
+import com.company.module.fire.entity.FireHydrant;
+import com.company.module.fire.entity.FireHydrantInspection;
+import com.company.module.fire.entity.Floor;
+import com.company.module.fire.repository.BuildingRepository;
+import com.company.module.fire.repository.FireHydrantInspectionRepository;
+import com.company.module.fire.repository.FireHydrantRepository;
+import com.company.module.fire.repository.FloorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -19,12 +25,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * 소화전 관리 서비스
- * <p>
- * 기존 ASP.NET: Pages/FireHydrants/* 비즈니스 로직
- * - @Transactional은 이 Service 계층에서만 사용
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -37,16 +37,10 @@ public class FireHydrantService {
 
     private static final int MAX_INSPECTION_HISTORY = 12;
 
-    /**
-     * 소화전 목록 조회
-     */
     @Transactional(readOnly = true)
     public Page<FireHydrantResponse> getHydrants(Long buildingId, Long floorId,
-                                                   String keyword, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size,
-                Sort.by("building.buildingName").ascending()
-                    .and(Sort.by("floor.floorName").ascending())
-                    .and(Sort.by("serialNumber").ascending()));
+                                                  String keyword, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("hydrantId").ascending());
 
         Long bId = (buildingId != null && buildingId > 0) ? buildingId : null;
         Long fId = (floorId != null && floorId > 0) ? floorId : null;
@@ -62,13 +56,10 @@ public class FireHydrantService {
         });
     }
 
-    /**
-     * 소화전 상세 조회 (점검 이력 포함)
-     */
     @Transactional(readOnly = true)
     public FireHydrantResponse getHydrantDetail(Long hydrantId) {
         FireHydrant h = hydrantRepository.findById(hydrantId)
-                .orElseThrow(() -> new ResourceNotFoundException("소화전", hydrantId));
+                .orElseThrow(() -> new ResourceNotFoundException("FireHydrant", hydrantId));
 
         FireHydrantResponse dto = new FireHydrantResponse(h);
 
@@ -84,32 +75,24 @@ public class FireHydrantService {
         return dto;
     }
 
-    /**
-     * 소화전 저장 (신규 / 수정)
-     * <p>
-     * 기존 ASP.NET: OnPostHydSaveAsync() 대응
-     */
     @Transactional
     public FireHydrantResponse saveHydrant(FireHydrantSaveRequest req) {
         String hydrantType = (req.getHydrantType() != null) ? req.getHydrantType().trim() : "Indoor";
         String operationType = (req.getOperationType() != null) ? req.getOperationType().trim() : "Manual";
 
         if (!"Indoor".equals(hydrantType) && !"Outdoor".equals(hydrantType)) {
-            throw new BusinessException("HydrantType은 Indoor 또는 Outdoor이어야 합니다.");
+            throw new BusinessException("HydrantType must be Indoor or Outdoor.");
         }
         if (!"Auto".equals(operationType) && !"Manual".equals(operationType)) {
-            throw new BusinessException("OperationType은 Auto 또는 Manual이어야 합니다.");
+            throw new BusinessException("OperationType must be Auto or Manual.");
         }
 
         FireHydrant entity;
-
         if (req.getHydrantId() != null && req.getHydrantId() > 0) {
-            // 수정 (타입은 변경 불가)
             entity = hydrantRepository.findById(req.getHydrantId())
-                    .orElseThrow(() -> new ResourceNotFoundException("소화전", req.getHydrantId()));
-            hydrantType = entity.getHydrantType();  // 기존 타입 유지
+                    .orElseThrow(() -> new ResourceNotFoundException("FireHydrant", req.getHydrantId()));
+            hydrantType = entity.getHydrantType();
         } else {
-            // 신규 등록
             String serialNumber = generateNextSerialNumber();
             entity = FireHydrant.builder()
                     .serialNumber(serialNumber)
@@ -122,55 +105,52 @@ public class FireHydrantService {
 
         Building building;
         Floor floor;
-        BigDecimal x, y;
+        BigDecimal x;
+        BigDecimal y;
 
         if ("Outdoor".equals(hydrantType)) {
-            // 옥외: buildingId=99 (기존 규칙 유지), floorId=1
             building = buildingRepository.findById(99L)
                     .orElseGet(() -> buildingRepository.findById(1L)
-                            .orElseThrow(() -> new BusinessException("옥외 건물(id=99) 정보를 설정하세요.")));
+                            .orElseThrow(() -> new BusinessException("Outdoor building(id=99) is missing.")));
             floor = floorRepository.findById(1L)
-                    .orElseThrow(() -> new BusinessException("기본 층(id=1) 정보를 설정하세요."));
+                    .orElseThrow(() -> new BusinessException("Default floor(id=1) is missing."));
 
             if (req.getX() == null || req.getY() == null) {
-                throw new BusinessException("옥외 소화전은 좌표가 필요합니다.");
+                throw new BusinessException("Coordinates are required for outdoor hydrants.");
             }
             x = req.getX().setScale(2, java.math.RoundingMode.HALF_UP);
             y = req.getY().setScale(2, java.math.RoundingMode.HALF_UP);
         } else {
             if (req.getBuildingId() == null || req.getFloorId() == null) {
-                throw new BusinessException("건물/층을 선택하세요.");
+                throw new BusinessException("Building and floor are required.");
             }
             building = buildingRepository.findById(req.getBuildingId())
-                    .orElseThrow(() -> new BusinessException("건물 정보를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new BusinessException("Building not found."));
             floor = floorRepository.findById(req.getFloorId())
-                    .orElseThrow(() -> new BusinessException("층 정보를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new BusinessException("Floor not found."));
             x = req.getX();
             y = req.getY();
         }
 
         entity.update(operationType, building, floor, x, y, req.getLocationDescription());
-
         log.info("FireHydrant saved: id={}, serial={}", entity.getHydrantId(), entity.getSerialNumber());
         return new FireHydrantResponse(entity);
     }
 
-    /**
-     * 소화전 점검 등록
-     * <p>
-     * 기존 ASP.NET: OnPostInspectAsync() 대응
-     */
     @Transactional
     public void inspect(Long hydrantId, boolean isFaulty, String faultReason,
                         Long userId, String inspectorName) {
         if (isFaulty && (faultReason == null || faultReason.isBlank())) {
-            throw new BusinessException("비정상인 경우 불량 사유가 필요합니다.");
+            throw new BusinessException("faultReason is required when isFaulty=true.");
         }
 
         FireHydrant hydrant = hydrantRepository.findById(hydrantId)
-                .orElseThrow(() -> new ResourceNotFoundException("소화전", hydrantId));
+                .orElseThrow(() -> new ResourceNotFoundException("FireHydrant", hydrantId));
 
         LocalDate today = LocalDate.now();
+        if (inspectionRepository.existsByHydrant_HydrantIdAndInspectionDate(hydrantId, today)) {
+            throw new BusinessException("오늘 이미 점검 완료된 소화전입니다.");
+        }
 
         FireHydrantInspection inspection = FireHydrantInspection.builder()
                 .hydrant(hydrant)
@@ -183,34 +163,72 @@ public class FireHydrantService {
 
         inspectionRepository.save(inspection);
         inspectionRepository.trimInspectionsKeepLatest12(hydrantId);
-
         log.info("FireHydrant inspected: hydrantId={}, isFaulty={}, by={}", hydrantId, isFaulty, inspectorName);
     }
 
-    /**
-     * 소화전 삭제
-     */
+    @Transactional
+    public void addInspection(Long hydrantId, LocalDate inspectionDate, boolean isFaulty,
+                              String faultReason, String inspectorName, Long userId) {
+        if (inspectionDate == null) {
+            throw new BusinessException("점검일은 필수입니다.");
+        }
+        if (isFaulty && (faultReason == null || faultReason.isBlank())) {
+            throw new BusinessException("비정상인 경우 고장 사유가 필요합니다.");
+        }
+        FireHydrant hydrant = hydrantRepository.findById(hydrantId)
+                .orElseThrow(() -> new ResourceNotFoundException("FireHydrant", hydrantId));
+        if (inspectionRepository.existsByHydrant_HydrantIdAndInspectionDate(hydrantId, inspectionDate)) {
+            throw new BusinessException("해당 날짜의 점검 이력이 이미 존재합니다.");
+        }
+        FireHydrantInspection inspection = FireHydrantInspection.builder()
+                .hydrant(hydrant)
+                .inspectionDate(inspectionDate)
+                .isFaulty(isFaulty)
+                .faultReason(faultReason)
+                .inspectedByUserId(userId)
+                .inspectedByName((inspectorName == null || inspectorName.isBlank()) ? "관리자" : inspectorName.trim())
+                .build();
+        inspectionRepository.save(inspection);
+        inspectionRepository.trimInspectionsKeepLatest12(hydrantId);
+    }
+
+    @Transactional
+    public void updateInspection(Long hydrantId, Long inspectionId, LocalDate inspectionDate,
+                                 boolean isFaulty, String faultReason, String inspectorName) {
+        if (inspectionDate == null) {
+            throw new BusinessException("점검일은 필수입니다.");
+        }
+        if (isFaulty && (faultReason == null || faultReason.isBlank())) {
+            throw new BusinessException("비정상인 경우 고장 사유가 필요합니다.");
+        }
+        FireHydrantInspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new ResourceNotFoundException("점검 이력", inspectionId));
+        if (inspection.getHydrant() == null || !hydrantId.equals(inspection.getHydrant().getHydrantId())) {
+            throw new BusinessException("소화전과 점검 이력이 일치하지 않습니다.");
+        }
+        boolean duplicated = inspectionRepository
+                .existsByHydrant_HydrantIdAndInspectionDateAndInspectionIdNot(hydrantId, inspectionDate, inspectionId);
+        if (duplicated) {
+            throw new BusinessException("해당 날짜의 점검 이력이 이미 존재합니다.");
+        }
+        inspection.updateInspection(inspectionDate, isFaulty, faultReason, inspectorName);
+    }
+
     @Transactional
     public void deleteHydrant(Long hydrantId) {
         FireHydrant h = hydrantRepository.findById(hydrantId)
-                .orElseThrow(() -> new ResourceNotFoundException("소화전", hydrantId));
+                .orElseThrow(() -> new ResourceNotFoundException("FireHydrant", hydrantId));
         hydrantRepository.delete(h);
         log.info("FireHydrant deleted: id={}", hydrantId);
     }
 
-    /**
-     * 이미지 경로 업데이트
-     */
     @Transactional
     public void updateImagePath(Long hydrantId, String imagePath) {
         FireHydrant h = hydrantRepository.findById(hydrantId)
-                .orElseThrow(() -> new ResourceNotFoundException("소화전", hydrantId));
+                .orElseThrow(() -> new ResourceNotFoundException("FireHydrant", hydrantId));
         h.updateImagePath(imagePath);
     }
 
-    /**
-     * 다음 일련번호 생성 (HYD-000001 형식)
-     */
     private String generateNextSerialNumber() {
         List<String> serials = hydrantRepository.findAllSerialNumbers();
         int maxNum = 0;
@@ -218,7 +236,8 @@ public class FireHydrantService {
             try {
                 int n = Integer.parseInt(s.substring(4));
                 if (n > maxNum) maxNum = n;
-            } catch (NumberFormatException ignored) { }
+            } catch (NumberFormatException ignored) {
+            }
         }
         return String.format("HYD-%06d", maxNum + 1);
     }

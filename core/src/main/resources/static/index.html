@@ -4,7 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FireWeb</title>
+    <script>
+        // If this main page is accidentally served on floor route, force dedicated floor page.
+        (function () {
+            var p = (location.pathname || '').toLowerCase();
+            if (p === '/maps/floor' || p === '/maps/floor/' || p === '/maps/floor.html') {
+                location.replace('/maps/floor-v2' + (location.search || ''));
+            }
+        })();
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         html, body { width:100%; height:100%; margin:0; overflow:hidden; }
 
@@ -17,10 +27,11 @@
         .scene img.bg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter:brightness(.85); z-index:1; user-drag:none; -webkit-user-drag:none; user-select:none; }
         #mapStage{ position:absolute; inset:0; z-index:1; transform-origin:0 0; }
 
-        /* 좌측 상단 UI */
-        .top-left{ position:absolute; top:0; left:0; z-index:300; display:flex; flex-direction:column; align-items:flex-start; }
-        .top-left{ transition: opacity 220ms ease, transform 220ms ease; }
-        .top-left.fade-out{ opacity:0; transform: translateX(-20px); pointer-events:none; }
+        /* ??レ뒩????⑤８堉?UI */
+        .top-left{ position:absolute; top:0; left:0; z-index:700; display:flex; flex-direction:column; align-items:flex-start; }
+        .top-left .logo{ transition: opacity 220ms ease, transform 220ms ease; }
+        .top-left.fade-out .logo{ opacity:0; transform: translateX(-20px); pointer-events:none; }
+        .top-left.fade-out .hamburger{ pointer-events:auto; }
         .logo{
           width:var(--menu-w);
           height:var(--logo-h);
@@ -36,7 +47,7 @@
           object-fit:contain;
           display:block;
         }
-        .hamburger{ width:var(--hamburger); height:var(--hamburger); border:0; background:rgba(255,255,255,.95); cursor:pointer; border-radius:0 0 12px 0; }
+        .hamburger{ width:var(--hamburger); height:var(--hamburger); border:0; background:rgba(255,255,255,.95); cursor:pointer; border-radius:0 0 12px 0; position:relative; z-index:710; }
         .hamburger .lines{ width:28px; height:20px; position:relative; margin:0 auto; }
         .hamburger .lines span{ position:absolute; left:0; right:0; height:3px; background:#667eea; border-radius:3px; transition:.3s; }
         .hamburger .lines span:nth-child(1){ top:0; }
@@ -46,7 +57,7 @@
         .screen.menu-open .hamburger .lines span:nth-child(2){ opacity:0; }
         .screen.menu-open .hamburger .lines span:nth-child(3){ top:8px; transform:rotate(-45deg); }
 
-        /* 사이드 메뉴 */
+        /* ?????嶺뚮∥???*/
         .side-menu{ position:absolute; top:0; left:0; width:var(--menu-w); height:100%; background:rgba(255,255,255,.96); z-index:250;
             transform:translateX(-100%); transition:transform 300ms cubic-bezier(0.4,0,0.2,1);
             padding:20px;
@@ -59,28 +70,28 @@
         .menu-btn{ display:block; padding:14px 16px; border-radius:12px; margin-top:10px; background:#667eea; color:#fff; text-decoration:none; font-weight:700; }
         .menu-btn:hover{ background:#5a6fe0; color:#fff; }
 
-        /* 좌측 하단 계정 드롭다운 */
+        /* ??レ뒩????濡ル펺 ??ｌ뫒????類싲뙓???깅뮧 */
         .menu-account{ position:absolute; left:20px; right:20px; bottom:20px; }
         .menu-account .dropdown-toggle{ border-radius:14px; padding:12px 14px; font-weight:900; }
         .menu-account .dropdown-menu{ border-radius:14px; overflow:hidden; }
         .menu-account .dropdown-item{ font-weight:700; }
 
-        /* 오버레이 */
+        /* ???댁뮅???깅턄 */
         .overlay{ position:absolute; inset:0; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; z-index:200; transition:opacity 300ms; }
         .screen.menu-open .overlay{ opacity:1; pointer-events:auto; }
 
-        /* SVG 폴리곤 */
+        /* SVG ????怨ヂ?*/
         .zone-overlay{ position:absolute; inset:0; width:100%; height:100%; z-index:40; pointer-events:auto; }
         .zone-overlay .zone{ fill:rgba(255,255,255,.08); stroke:rgba(255,255,255,0); stroke-width:4; cursor:pointer; transition:fill 120ms, stroke 120ms; }
         .zone-overlay .zone:hover{ fill:rgba(255,255,255,.16); stroke:rgba(255,255,255,.75); }
         .zone-overlay .zone.selected{ fill:rgba(255,107,107,.18); stroke:rgba(255,107,107,.95); }
 
-        /* 툴팁 */
+        /* ??袁⑥깓 */
         #zoneTooltip{ position:absolute; z-index:500; display:none; padding:8px 12px; border-radius:10px; background:rgba(0,0,0,.78); color:#fff;
             font-weight:800; font-size:.95rem; pointer-events:none; transform:translateY(-6px); opacity:0; transition:opacity 120ms, transform 120ms; }
         #zoneTooltip.show{ opacity:1; transform:translateY(-10px); }
 
-        /* 구역 클릭 팝업 */
+        /* ??뚮봾?????????諛몄뵜 */
         .zone-popup{ position:absolute; z-index:520; min-width:220px; max-width:360px; background:rgba(255,255,255,.96); border-radius:14px;
             padding:12px; box-shadow:0 12px 30px rgba(0,0,0,.25); border:1px solid rgba(0,0,0,.06); }
         .zone-popup .zp-title{ font-weight:900; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; }
@@ -89,7 +100,7 @@
         .zone-popup .zp-floors{ display:flex; flex-wrap:wrap; gap:8px; }
         .zone-popup .zp-floor{ border:0; padding:8px 10px; border-radius:999px; background:#667eea; color:#fff; font-weight:800; cursor:pointer; }
 
-        /* 정보 패널 */
+        /* ?類ｋ궖 ???븐꽢 */
         .info-panel{ position:absolute; bottom:20px; right:20px; z-index:260; background:rgba(255,255,255,.95); padding:16px 18px; border-radius:16px;
             box-shadow:0 8px 24px rgba(0,0,0,.2); display:flex; gap:14px; align-items:flex-start; }
         .info-panel h3{ margin:0 0 10px 0; font-size:1.35rem; }
@@ -135,7 +146,7 @@
         .os-label{ padding-top:4px; }
         .os-select{ display:flex; align-items:center; }
 
-        /* 옥외 소화전 모드 */
+        /* ?關????곗넅?袁ъ춻??산덧 */
         .outdoor-toggle{
             position:absolute;
             top:16px;
@@ -277,7 +288,7 @@
             cursor:crosshair;
         }
 
-        /* 좌표 따기 패널 */
+        /* ?ル슦紐???⑤슢?????븐꽢 */
         #pickPanel{ position:absolute; left:16px; top:160px; z-index:560; width:380px; background:rgba(255,255,255,.93);
             border:1px solid rgba(0,0,0,.15); border-radius:14px; padding:12px; display:none; box-shadow:0 14px 36px rgba(0,0,0,.25); }
         #pickPanel .row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center; }
@@ -290,7 +301,7 @@
         #pickOut{ width:100%; height:150px; resize:none; border-radius:12px; border:1px solid rgba(0,0,0,.15); padding:10px;
             font-family:ui-monospace,Consolas,monospace; font-size:12px; outline:none; background:rgba(255,255,255,.9); }
 
-        /* 캔버스(점 표시용) */
+        /* 嶺?????????戮?뻣?? */
         #pickCanvas{ position:absolute; inset:0; width:100%; height:100%; z-index:55; pointer-events:none; }
 
         @media (max-width: 768px){
@@ -298,7 +309,7 @@
             .info-panel{ bottom:10px; right:10px; }
         }
 
-        /* 점검 모달 */
+        /* ?먭? 紐⑤떖 */
         .modal-overlay{
             position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:none; align-items:center; justify-content:center;
         }
@@ -319,18 +330,16 @@
 <div class="screen" id="screen">
 
     <aside class="side-menu">
-        <div class="menu-title">📌 메뉴</div>
+        <div class="menu-title">메뉴</div>
         <a class="menu-btn" href="/extinguishers.html">🧯 소화기 목록</a>
         <a class="menu-btn" href="/hydrants.html">🚒 소화전 목록</a>
-        <a class="menu-btn" href="/floor?buildingName=복지관&floorName=1층">🗺️ 도면</a>
-        <a class="menu-btn" href="/m/map.html">📱 모바일 화면</a>
-        <a class="menu-btn" href="/qr/index.html">🔒 QR코드 확인</a>
+        <a class="menu-btn" href="/maps/floor-v2?buildingName=%EA%B4%80%EB%A6%AC%EB%8F%99&floorName=1%EC%B8%B5">🗺️ 도면</a>
+        <a class="menu-btn" href="/qr"><i class="bi bi-qr-code me-2"></i>QR코드 확인</a>
+        <a class="menu-btn" id="adminQuickBtn" href="/account/users.html" style="display:none;">👤 계정관리</a>
 
         <div class="menu-account">
             <div class="dropup" id="accountDropup">
-                <button class="btn btn-outline-primary w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="accountBtn">
-                    로딩 중...
-                </button>
+                <button class="btn btn-outline-primary w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="accountBtn">로딩 중...</button>
                 <ul class="dropdown-menu w-100" id="accountMenu">
                     <li><a class="dropdown-item" href="/account/index.html">내 정보</a></li>
                     <li id="adminMenuLi" style="display:none;"><a class="dropdown-item" href="/account/users.html">계정관리</a></li>
@@ -354,7 +363,7 @@
             <div id="zoneTooltip"></div>
             <div id="outdoorMarkers" aria-hidden="true"></div>
 
-            <svg id="zoneOverlay" class="zone-overlay"
+                        <svg id="zoneOverlay" class="zone-overlay"
                  viewBox="0 0 1955 985"
                  preserveAspectRatio="xMidYMid slice"
                  data-base-w="1955"
@@ -370,39 +379,47 @@
             <polygon class="zone" data-zone="C" data-name="중문창고" data-floors="1층"
                      points="1516,273 1524,243 1542,229 1678,232 1692,261 1693,274 1633,353 1542,353" />
 
-            <polygon class="zone" data-zone="C" data-name="화장지4.5호기" data-floors="지하1층,1층,2층,3층"
+            <polygon class="zone" data-zone="C" data-name="화장지4,5호기" data-floors="지하1층,1층,2층,3층"
+                     data-points-pct="66.198,27.930 76.458,27.620 76.615,26.379 73.750,9.323 71.563,8.289 69.271,9.219 69.063,8.496 68.177,7.772 64.792,8.289 64.479,9.839"
                      points="1295,265 1494,265 1496,253 1439,68 1343,72 1331,66 1321,72 1321,67 1264,70 1259,96" />
 
             <polygon class="zone" data-zone="C" data-name="복합보일러" data-floors="1층,2층,3층"
                      points="1279,268 1263,140 1250,115 1193,119 1193,126 1175,127 1173,168 1186,238 1170,237 1167,260 1170,274 1220,274 1221,268 1232,268 1233,272" />
 
-            <polygon class="zone" data-zone="C" data-name="화장지3.6호기" data-floors="1층,2층"
+            <polygon class="zone" data-zone="C" data-name="화장지3,6호기" data-floors="1층,2층"
+                     data-points-pct="35.781,31.755 40.104,31.548 40.260,30.204 49.323,30.721 49.323,22.864 48.542,22.037 48.594,13.974 47.240,13.044 45.677,13.974 44.271,12.837 43.021,13.561 43.073,12.941 41.719,12.527 40.521,12.941 40.521,13.457 39.896,13.354 38.906,13.251 38.333,21.624 37.813,21.934 37.969,20.900 36.615,20.900 36.563,25.035 36.042,25.966"
                      points="717,203 714,245 706,248 696,295 700,306 784,307 784,291 958,294 965,147 951,142 950,128 924,117 896,127 868,117 839,127 840,120 814,112 790,120 788,127 778,122 763,124 749,200" />
 
             <polygon class="zone" data-zone="C" data-name="전기공무" data-floors="1층"
                      points="683,299 699,230 697,215 655,215 646,221 635,289 640,302 679,303" />
 
-            <polygon class="zone" data-zone="C" data-name="심면펄퍼" data-floors="지하1층,1층,2층"
+            <polygon class="zone" data-zone="C" data-name="심면펄퍼" data-floors="1층,2층"
+                     data-points-pct="32.969,87.680 51.510,88.300 51.771,86.853 51.719,85.819 53.490,86.129 53.698,84.682 53.594,81.994 53.438,78.273 33.646,78.066 33.073,81.581"
                      points="495,321 471,270 460,251 398,279 400,285 312,322 345,399" />
 
-            <polygon class="zone" data-zone="C" data-name="제지2호기" data-floors="1층,2층"
+            <polygon class="zone" data-zone="C" data-name="제지1,2호기" data-floors="1층,2층"
                      points="591,461 623,320 697,324 699,313 857,312 857,319 1154,325 1154,296 1285,297 1288,314 1335,318 1339,329 1369,328 1375,342 1384,355 1384,373 1388,374 1393,385 1393,408 1401,432 1404,460 1406,482 601,474" />
 
             <polygon class="zone" data-zone="C" data-name="제지3호기" data-floors="1층,2층"
                      points="1509,490 764,477 758,481 750,560 745,559 739,597 743,610 745,611 747,627 741,626 738,657 752,659 756,649 778,651 779,658 912,661 912,657 940,656 940,662 966,660 966,638 1116,639 1130,811 1559,822 1566,791 1499,542 1507,527 1532,524 1523,492" />
 
             <polygon class="zone" data-zone="C" data-name="패드동" data-floors="1층,2층"
+                     data-points-pct="35.833,77.963 53.490,78.273 53.229,66.385 52.396,66.178 52.344,67.522 48.281,67.315 48.281,66.591 46.615,66.591 46.615,66.798 39.896,66.695 39.844,66.281 38.594,66.178 38.385,67.418 37.552,67.005 36.563,67.005 36.250,71.553 35.573,71.967 35.573,74.241 35.885,74.241"
                      points="702,774 1046,775 1041,656 1023,657 1023,665 942,663 941,657 912,658 912,662 780,663 779,655 757,656 752,661 752,666 733,662 714,665 709,712 700,714 696,729 705,731 702,756" />
+
+            <polygon class="zone" data-zone="C" data-name="기저귀동" data-floors="1층"
+                     data-points-pct="32.969,87.680 51.510,88.300 51.771,86.853 51.719,85.819 53.490,86.129 53.698,84.682 53.594,81.994 53.438,78.273 33.646,78.066 33.073,81.581"
+                     points="495,321 471,270 460,251 398,279 400,285 312,322 345,399" />
 
             <polygon class="zone" data-zone="C" data-name="수출창고" data-floors="1층"
                      points="1243,836 1614,837 1624,876 1642,876 1653,896 1649,915 1656,945 1637,969 1279,979 1276,966 1253,967 1238,846" />
             </svg>
 
-            <!-- 좌표 따기 캔버스 -->
+            <!-- 醫뚰몴 ?곌린 罹붾쾭??-->
             <canvas id="pickCanvas"></canvas>
 
-            <!-- 좌표 따기 패널 -->
-            <div id="pickPanel">
+            <!-- 醫뚰몴 ?곌린 ?⑤꼸 -->
+                        <div id="pickPanel">
                 <div class="row">
                     <div class="title">좌표 따기 모드 (폴리곤)</div>
                     <button type="button" class="gray" onclick="Pick.end()">닫기</button>
@@ -422,7 +439,7 @@
                 <textarea id="pickOut" readonly></textarea>
             </div>
 
-            <!-- 구역 클릭 시 뜨는 팝업 -->
+            <!-- 援ъ뿭 ?대┃ ???⑤뒗 ?앹뾽 -->
             <div id="zonePopup" class="zone-popup" style="display:none;"></div>
         </div>
     </div>
@@ -490,10 +507,10 @@
     </div>
 </div>
 
-<!-- 소화전 점검 모달 -->
+<!-- ?뚰솕???먭? 紐⑤떖 -->
 <div class="modal-overlay" id="inspectModal">
     <div class="modal-box">
-        <h5>🚒 소화전 점검</h5>
+        <h5>소화전 점검</h5>
         <div id="inspectHydrantInfo" style="font-size:13px; color:#666; margin-bottom:12px;"></div>
         <div class="mb-3">
             <label class="form-label">점검 결과</label>
@@ -504,13 +521,13 @@
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="radio" name="inspectResult" id="resultFault" value="true">
-                    <label class="form-check-label" for="resultFault">결함</label>
+                    <label class="form-check-label" for="resultFault">비정상</label>
                 </div>
             </div>
         </div>
         <div class="mb-3" id="faultReasonBox" style="display:none;">
-            <label class="form-label">결함 사유</label>
-            <input type="text" class="form-control" id="faultReasonInput" placeholder="결함 내용을 입력하세요" />
+            <label class="form-label">고장 사유</label>
+            <input type="text" class="form-control" id="faultReasonInput" placeholder="고장 사유를 입력하세요" />
         </div>
         <div class="d-flex justify-content-end">
             <button class="btn-submit" onclick="submitInspect()">저장</button>
@@ -519,9 +536,14 @@
     </div>
 </div>
 
+<!-- 옥외 소화전 편집 전체화면 모달 -->
+<div id="outdoorEditHost" style="display:none; position:fixed; inset:0; z-index:1200; background:#ffffff;">
+  <iframe id="outdoorEditFrame" title="옥외 소화전 편집" style="width:100%; height:100%; border:0; background:#ffffff;" loading="lazy"></iframe>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// ===== 전역 상태 =====
+// ===== ?熬곣뫖????⑤객臾?=====
 let currentUser = null;
 let isAdmin = false;
 let outdoorHydrants = [];
@@ -532,12 +554,13 @@ let outdoorMoveMode = false;
 let outdoorByKey = new Map();
 let currentInspectHydrantId = null;
 
-// ===== JWT 토큰 관리 =====
+// ===== JWT ??ルㅎ荑???㉱??=====
 function getToken() {
-    return localStorage.getItem('fireweb_token');
+    return localStorage.getItem('fireweb_token') || localStorage.getItem('fw_token');
 }
 function setToken(token) {
     localStorage.setItem('fireweb_token', token);
+    localStorage.setItem('fw_token', token);
 }
 
 async function apiFetch(url, options = {}) {
@@ -545,52 +568,39 @@ async function apiFetch(url, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
     if (token) headers['Authorization'] = 'Bearer ' + token;
     const res = await fetch(url, { ...options, headers });
+    const renewed = res.headers.get('X-Auth-Token');
+    if (renewed) setToken(renewed);
     if (res.status === 401) {
-        // 토큰 삭제 후 이동 (삭제 안 하면 login.html → / → login.html 무한루프 발생)
-        localStorage.removeItem('fireweb_token');
-        localStorage.removeItem('fireweb_user');
         window.location.href = '/login.html';
         return null;
     }
     return res;
 }
 
-// ===== 로그아웃 =====
+// ===== 嚥≪뮄??袁⑹뜍 =====
 function logout() {
     localStorage.removeItem('fireweb_token');
+    localStorage.removeItem('fw_token');
     localStorage.removeItem('fireweb_user');
+    localStorage.removeItem('fw_user');
     window.location.href = '/login.html';
 }
 
-// ===== 초기화: 인증 확인 및 사용자 정보 로드 =====
+// ===== 珥덇린 ?몄쬆 ?뺤씤 諛??ъ슜???뺣낫 濡쒕뱶 =====
 async function init() {
     const token = getToken();
     if (!token) {
         window.location.href = '/login.html';
         return;
     }
-    // 토큰 만료 여부 사전 체크 (JWT payload exp 확인)
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp && payload.exp * 1000 < Date.now()) {
-            // 만료된 토큰 → 삭제 후 로그인 이동
-            localStorage.removeItem('fireweb_token');
-            localStorage.removeItem('fireweb_user');
-            window.location.href = '/login.html';
-            return;
-        }
-    } catch(e) {
-        // 파싱 실패 = 유효하지 않은 토큰
-        localStorage.removeItem('fireweb_token');
-        localStorage.removeItem('fireweb_user');
-        window.location.href = '/login.html';
-        return;
-    }
     try {
         const savedUser = localStorage.getItem('fireweb_user');
+        const fallbackUser = localStorage.getItem('fw_user');
         if (savedUser) {
             currentUser = JSON.parse(savedUser);
             isAdmin = currentUser.role === 'ADMIN';
+        } else if (fallbackUser) {
+            currentUser = { username: fallbackUser, displayName: fallbackUser, role: 'USER' };
         }
         const accountBtn = document.getElementById('accountBtn');
         if (accountBtn && currentUser) {
@@ -599,6 +609,8 @@ async function init() {
         if (isAdmin) {
             const adminLi = document.getElementById('adminMenuLi');
             if (adminLi) adminLi.style.display = '';
+            const adminQuickBtn = document.getElementById('adminQuickBtn');
+            if (adminQuickBtn) adminQuickBtn.style.display = 'block';
             ['btnOutdoorAdd','btnOutdoorMove','btnOutdoorEdit'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = '';
@@ -614,7 +626,7 @@ async function init() {
     }
 }
 
-// ===== 옥외 소화전 데이터 로드 =====
+// ===== ?關????곗넅???⑥щ턄??嚥≪뮆諭?=====
 async function loadOutdoorHydrants() {
     try {
         const res = await apiFetch('/fire-api/hydrants?size=200&page=0');
@@ -626,11 +638,11 @@ async function loadOutdoorHydrants() {
         }
         renderOutdoorMarkers();
     } catch(e) {
-        console.error('소화전 로드 오류', e);
+        console.error('옥외 소화전 로드 실패', e);
     }
 }
 
-// ===== DOM 참조 =====
+// ===== DOM 嶺뚣볦굣??=====
 const screen = document.getElementById('screen');
 const menuBtn = document.getElementById('menuBtn');
 const overlay = document.getElementById('overlay');
@@ -662,6 +674,8 @@ const btnOutdoorMove = document.getElementById('btnOutdoorMove');
 const btnOutdoorEdit = document.getElementById('btnOutdoorEdit');
 const outdoorActionHint = document.getElementById('outdoorActionHint');
 const mapImg = document.getElementById('mapImg');
+const outdoorEditHostEl = document.getElementById('outdoorEditHost');
+const outdoorEditFrame = document.getElementById('outdoorEditFrame');
 
 menuBtn.onclick = () => screen.classList.toggle('menu-open');
 overlay.onclick = () => screen.classList.remove('menu-open');
@@ -670,7 +684,7 @@ if (mapImg) {
     mapImg.addEventListener('dragstart', (e) => e.preventDefault());
 }
 
-// ===== 자연 크기 =====
+// ===== ?????????=====
 function getNaturalSize(){
     const fallback = { w: 1955, h: 985 };
     if (!mapImg) return fallback;
@@ -679,7 +693,7 @@ function getNaturalSize(){
     return fallback;
 }
 
-// ===== SVG viewBox 동기화 =====
+// ===== SVG viewBox ???욋뵛??=====
 function setOverlayViewBox(){
     if (!zoneSvg) return;
     const { w, h } = getNaturalSize();
@@ -690,7 +704,7 @@ function setOverlayViewBox(){
     applyPctPointsToAll();
 }
 
-// ===== points <-> % 변환 =====
+// ===== points <-> % ?곌떠???=====
 function parsePoints(pointsStr){
     const s = (pointsStr || '').trim();
     if (!s) return [];
@@ -734,7 +748,7 @@ function applyPctPointsToAll(){
     });
 }
 
-// ===== 툴팁 =====
+// ===== ??袁⑥깓 =====
 function showTooltip(e, name) {
     if (!tooltip) return;
     tooltip.textContent = name || '';
@@ -754,7 +768,7 @@ function positionTooltip(e) {
     tooltip.style.top  = (e.clientY - r.top  + 18) + 'px';
 }
 
-// ===== 팝업(층 선택) =====
+// ===== ?앹뾽(痢??좏깮) =====
 function closePopup() {
     if (!zonePopup) return;
     zonePopup.style.display = 'none';
@@ -782,7 +796,7 @@ function openPopupNearEvent(e, zoneName, floorsCsv) {
             const floor = btn.getAttribute('data-floor') || '';
             const b = (zoneName || '').trim();
             const f = (floor || '').trim();
-            const url = `/floor?buildingName=${encodeURIComponent(b)}&floorName=${encodeURIComponent(f)}`;
+            const url = `/maps/floor-v2?buildingName=${encodeURIComponent(b)}&floorName=${encodeURIComponent(f)}`;
             window.location.href = url;
         });
     });
@@ -822,7 +836,7 @@ function bindZones() {
     zonePopup?.addEventListener('click', (e) => e.stopPropagation());
 }
 
-// ===== 옥외 소화전 힌트 =====
+// ===== ?關????곗넅???怨뺣콦 =====
 function setOutdoorHint(message, type){
     if(!outdoorActionHint) return;
     outdoorActionHint.textContent = message || '';
@@ -838,7 +852,7 @@ function setOutdoorToolMode(mode){
     document.body.classList.toggle('move-armed', outdoorMoveMode);
 }
 
-// ===== 옥외 소화전 정보 카드 =====
+// ===== ?關????곗넅?袁⑹젟癰??곸궠?獄?=====
 function hideOutdoorInfo(clearSelection = true){
     if(outdoorSelect) outdoorSelect.classList.remove('show');
     if(clearSelection){
@@ -874,7 +888,7 @@ function positionOutdoorSelect(markerEl){
     outdoorSelect.style.bottom = 'auto';
 }
 
-// ===== 옥외 소화전 마커 렌더링 =====
+// ===== ?關????곗넅?袁ъ춹??곕Ы ?????춯?=====
 function renderOutdoorMarkers(){
     if(!outdoorMarkers) return;
     outdoorMarkers.innerHTML = '';
@@ -924,9 +938,9 @@ function renderOutdoorMarkers(){
             if (window.__mapDragLock || isPanning || panMoved) return;
             e.stopPropagation();
             if(outdoorAddMode){
-                alert('새 소화전을 이 위치에 추가합니다.');
+                alert('현재 화면에서는 소화전 추가를 직접 처리하지 않습니다.');
                 setOutdoorToolMode(null);
-                setOutdoorHint('추가 기능은 관리 페이지에서 이용해 주세요.');
+                setOutdoorHint('추가 기능은 관리자 페이지에서 이용해 주세요.');
                 return;
             }
             const items = outdoorByKey.get(key) || [];
@@ -937,7 +951,7 @@ function renderOutdoorMarkers(){
                 hideOutdoorInfo(false);
                 renderOutdoorMarkers();
                 if(currentOutdoorId){
-                    setOutdoorHint('이동할 새 위치를 지도에서 클릭하세요.');
+                    setOutdoorHint('이동할 위치를 지도에서 클릭하세요.');
                 } else {
                     setOutdoorHint('먼저 옥외 소화전 마커를 선택하세요.', 'error');
                 }
@@ -965,7 +979,7 @@ function renderOutdoorMarkers(){
     });
 }
 
-// ===== SVG 좌표 변환 =====
+// ===== SVG ?ル슦紐??곌떠???=====
 function getSvgPoint(clientX, clientY){
     if (!zoneSvg) return { xPct: 0, yPct: 0 };
     const pt = zoneSvg.createSVGPoint();
@@ -1017,7 +1031,7 @@ function zoomAt(cx, cy, newScale){
     applyMapTransform();
 }
 
-// ===== 옥외 모드 전환 =====
+// ===== ?關??嶺뚮ㅄ維獄??熬곥굦??=====
 function setOutdoorMode(on){
     outdoorMode = !!on;
     setOutdoorToolMode(null);
@@ -1056,7 +1070,6 @@ if (outdoorToggle){
     });
 }
 
-// 버튼 이벤트
 btnOutdoorAdd?.addEventListener('click', ()=>{
     if(!isAdmin){ alert('관리자만 추가할 수 있습니다.'); return; }
     setOutdoorToolMode('add');
@@ -1071,17 +1084,17 @@ btnOutdoorMove?.addEventListener('click', ()=>{
     }
     setOutdoorToolMode('move');
     hideOutdoorInfo(false);
-    setOutdoorHint('이동 모드 ON: 마커 선택 후 위치를 클릭하세요. 종료는 이동 버튼 다시 클릭.');
+    setOutdoorHint('이동 모드 ON: 마커 선택 후 위치를 클릭하세요. 종료는 이동 버튼을 다시 누르세요.');
 });
 btnOutdoorEdit?.addEventListener('click', ()=>{
     if(!isAdmin){ alert('관리자만 편집할 수 있습니다.'); return; }
     if(!currentOutdoorId){ setOutdoorHint('먼저 마커를 선택하세요.', 'error'); return; }
-    window.location.href = `/hydrants.html?edit=${currentOutdoorId}`;
+    openOutdoorEditModal(currentOutdoorId);
 });
 btnOutdoorSelectEdit?.addEventListener('click', ()=>{
     if(!isAdmin){ alert('관리자만 편집할 수 있습니다.'); return; }
     if(!currentOutdoorId){ setOutdoorHint('먼저 마커를 선택하세요.', 'error'); return; }
-    window.location.href = `/hydrants.html?edit=${currentOutdoorId}`;
+    openOutdoorEditModal(currentOutdoorId);
 });
 
 outdoorSelectList?.addEventListener('change', (e)=>{
@@ -1099,7 +1112,7 @@ btnOutdoorSelectInspect?.addEventListener('click', ()=>{
 btnOutdoorSelectClose?.addEventListener('click', ()=> hideOutdoorInfo(false));
 btnOutdoorSelectClose2?.addEventListener('click', ()=> hideOutdoorInfo(false));
 
-// 마우스 휠 줌
+// 留덉슦?????뺣?/異뺤냼
 scene.addEventListener('wheel', (e) => {
     if (!outdoorMode) return;
     e.preventDefault();
@@ -1110,7 +1123,7 @@ scene.addEventListener('wheel', (e) => {
     zoomAt(cx, cy, mapScale + delta);
 }, { passive: false });
 
-// 마우스 드래그 패닝
+// 嶺뚮씭??????類ㅼ굥?????삳뻤
 scene.addEventListener('mousedown', (e) => {
     if (!outdoorMode) return;
     if (e.button !== 0) return;
@@ -1139,24 +1152,24 @@ window.addEventListener('mouseup', () => {
     document.body.style.userSelect = '';
 });
 
-// 지도 클릭 (추가/이동 모드)
+// 吏???대┃(異붽?/?대룞 ?숈옉)
 scene.addEventListener('click', async (e)=>{
     if(!outdoorMode) return;
     if (window.__mapDragLock || panMoved) { panMoved = false; return; }
     if(outdoorAddMode){
         const p = getSvgPoint(e.clientX, e.clientY);
-        alert(`소화전 추가 위치: X=${p.xPct.toFixed(2)}%, Y=${p.yPct.toFixed(2)}%\n소화전 관리 페이지에서 추가해 주세요.`);
+        alert(`소화전 추가 위치: X=${p.xPct.toFixed(2)}%, Y=${p.yPct.toFixed(2)}%\n소화전 관리 페이지에서 추가를 진행하세요.`);
         setOutdoorToolMode(null);
         setOutdoorHint('추가 기능은 소화전 관리 페이지를 이용해 주세요.');
         return;
     }
     if(outdoorMoveMode){
-        if(!isAdmin){ setOutdoorToolMode(null); setOutdoorHint('관리자 권한이 필요합니다.', 'error'); return; }
+        if(!isAdmin){ setOutdoorToolMode(null); setOutdoorHint('관리자만 이동할 수 있습니다.', 'error'); return; }
         if(!currentOutdoorId){ setOutdoorHint('먼저 마커를 선택하세요.', 'error'); return; }
         const p = getSvgPoint(e.clientX, e.clientY);
         try {
             const res = await apiFetch(`/fire-api/hydrants/${currentOutdoorId}`);
-            if (!res || !res.ok) throw new Error('소화전 정보 로드 실패');
+            if (!res || !res.ok) throw new Error('소화전 데이터를 불러오지 못했습니다.');
             const json = await res.json();
             const data = json.data;
             const saveRes = await apiFetch('/fire-api/hydrants', {
@@ -1172,7 +1185,7 @@ scene.addEventListener('click', async (e)=>{
                     locationDescription: data.locationDescription || ''
                 })
             });
-            if (!saveRes || !saveRes.ok) throw new Error('이동 저장 실패');
+            if (!saveRes || !saveRes.ok) throw new Error('이동 저장에 실패했습니다.');
             const idx = outdoorHydrants.findIndex(h => h.hydrantId === currentOutdoorId);
             if(idx >= 0){ outdoorHydrants[idx].x = p.xPct; outdoorHydrants[idx].y = p.yPct; }
             renderOutdoorMarkers();
@@ -1186,7 +1199,7 @@ scene.addEventListener('click', async (e)=>{
     }
 });
 
-// ===== 점검 모달 =====
+// ===== ?먭? 紐⑤떖 =====
 function openInspectModal(hydrantId) {
     currentInspectHydrantId = hydrantId;
     const h = outdoorHydrants.find(x => x.hydrantId === hydrantId);
@@ -1211,16 +1224,16 @@ async function submitInspect() {
         const params = new URLSearchParams({ isFaulty: String(isFaulty) });
         if (faultReason) params.append('faultReason', faultReason);
         const res = await apiFetch(`/fire-api/hydrants/${currentInspectHydrantId}/inspect?${params.toString()}`, { method: 'POST' });
-        if (!res || !res.ok) throw new Error('점검 저장 실패');
+        if (!res || !res.ok) throw new Error('점검 처리 실패');
         closeInspectModal();
         hideOutdoorInfo(false);
-        setOutdoorHint('점검이 저장되었습니다.', 'success');
+        setOutdoorHint('점검 처리 완료', 'success');
     } catch(err) {
-        alert('점검 저장 실패: ' + (err?.message || err));
+        alert('점검 처리 실패: ' + (err?.message || err));
     }
 }
 
-// 결함 라디오 변경 시
+// 결함 여부 변경
 document.querySelectorAll('input[name="inspectResult"]').forEach(radio => {
     radio.addEventListener('change', () => {
         const isFaulty = document.querySelector('input[name="inspectResult"]:checked')?.value === 'true';
@@ -1228,7 +1241,7 @@ document.querySelectorAll('input[name="inspectResult"]').forEach(radio => {
     });
 });
 
-// ===== 좌표 따기 툴(Pick) =====
+// ===== ?ル슦紐???⑤슢????Pick) =====
 const Pick = (() => {
     let enabled = false;
     let pointsPct = [];
@@ -1310,9 +1323,9 @@ const Pick = (() => {
             const y = (p.yPct/100)*h;
             return `${Math.round(x)},${Math.round(y)}`;
         }).join(' ');
-        const polyTag = `<polygon class="zone"\n  data-zone="C"\n  data-name="구역명"\n  data-floors="1층,2층"\n  data-points-pct="${pctLine}" />`;
+        const polyTag = `<polygon class="zone"\n  data-zone="C"\n  data-name="구역명"\n  data-floors="1층"\n  data-points-pct="${pctLine}" />`;
         const m = mousePct
-            ? `\n현재 마우스(%): ${mousePct.xPct.toFixed(3)},${mousePct.yPct.toFixed(3)}  |  원본(px): ${Math.round((mousePct.xPct/100)*w)},${Math.round((mousePct.yPct/100)*h)}`
+            ? `\n현재 마우스 좌표(%): ${mousePct.xPct.toFixed(3)},${mousePct.yPct.toFixed(3)}  |  현재 좌표(px): ${Math.round((mousePct.xPct/100)*w)},${Math.round((mousePct.yPct/100)*h)}`
             : '';
         out.value = `원본 이미지: ${w} x ${h}\n점 개수: ${pointsPct.length}\n\n[% points]\n${pctLine}\n\n[원본(px) 참고]\n${pxLine}\n\n${polyTag}${m}`;
     }
@@ -1353,7 +1366,11 @@ const Pick = (() => {
     function clear(){ pointsPct = []; redraw(); formatOut(); }
     function undo(){ pointsPct.pop(); redraw(); formatOut(); }
     function finish(){
-        if (!ctx || pointsPct.length < 3) { formatOut(); return; }
+        if (!ctx || pointsPct.length < 3) {
+            formatOut();
+            alert('폴리곤 생성은 최소 3개 좌표가 필요합니다.');
+            return;
+        }
         ctx.save();
         ctx.globalAlpha = 0.18;
         ctx.fillStyle = 'rgba(255,0,0,1)';
@@ -1386,7 +1403,21 @@ const Pick = (() => {
 })();
 window.Pick = Pick;
 
-// ===== 초기화 =====
+function openOutdoorEditModal(id){
+    if(!outdoorEditHostEl || !outdoorEditFrame || !id) return;
+    outdoorEditFrame.src = `/hydrants.html?embedEdit=1&edit=${encodeURIComponent(id)}`;
+    outdoorEditHostEl.style.display = 'block';
+}
+
+window.addEventListener('message', async (ev) => {
+    if (ev?.data === 'fireweb:outdoor-edit-close') {
+        if (outdoorEditHostEl) outdoorEditHostEl.style.display = 'none';
+        if (outdoorEditFrame) outdoorEditFrame.src = 'about:blank';
+        await loadOutdoorHydrants();
+    }
+});
+
+// ===== ?貫?껆뵳??=====
 window.addEventListener('load', () => {
     if (mapImg && !mapImg.complete) {
         mapImg.addEventListener('load', () => {
@@ -1402,5 +1433,10 @@ window.addEventListener('load', () => {
     init();
 });
 </script>
+<script src="/js/common-nav.js"></script>
 </body>
 </html>
+
+
+
+

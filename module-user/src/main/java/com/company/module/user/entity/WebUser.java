@@ -45,6 +45,15 @@ public class WebUser {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    @Column(name = "legacy_password_hash_b64", length = 512)
+    private String legacyPasswordHashB64;
+
+    @Column(name = "legacy_password_salt_b64", length = 512)
+    private String legacyPasswordSaltB64;
+
+    @Column(name = "legacy_iterations")
+    private Integer legacyIterations;
+
     /**
      * 역할 (ADMIN / USER)
      * - Spring Security에서 ROLE_ prefix 자동 처리
@@ -91,6 +100,12 @@ public class WebUser {
 
     public void changePassword(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
+    }
+
+    public void clearLegacyPassword() {
+        this.legacyPasswordHashB64 = null;
+        this.legacyPasswordSaltB64 = null;
+        this.legacyIterations = null;
     }
 
     public void updateDisplayName(String displayName) {

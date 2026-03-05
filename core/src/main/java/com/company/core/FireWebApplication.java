@@ -6,11 +6,10 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
- * FireWeb Spring Boot Application 진입점
- * <p>
- * - 멀티 모듈 구조에서 core 모듈이 애플리케이션 메인을 담당
- * - 각 업무 모듈(module-user, module-fire, module-sales)의 Entity/Repository를 스캔
- * - Spring Security, 예외 처리, 공통 응답 포맷은 core에서 설정
+ * FireWeb Spring Boot Application 진입?? * <p>
+ * - 멀??모듈 구조?�서 core 모듈???�플리�??�션 메인???�당
+ * - �??�무 모듈(module-user, module-fire)??Entity/Repository�??�캔
+ * - Spring Security, ?�외 처리, 공통 ?�답 ?�맷?� core?�서 ?�정
  */
 @SpringBootApplication(scanBasePackages = "com.company")
 @EntityScan(basePackages = "com.company")

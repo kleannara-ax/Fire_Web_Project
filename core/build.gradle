@@ -10,7 +10,7 @@ plugins {
 //
 // [멀티모듈 의존 구조]
 //   core (app 진입점)
-//     └─ runtimeOnly → module-user, module-fire, module-sales
+//     └─ runtimeOnly → module-user, module-fire
 //   module-* (업무 모듈)
 //     └─ compileOnly → core  (컴파일 시에만 참조, 런타임은 core가 포함)
 apply plugin: 'org.springframework.boot'
@@ -45,7 +45,6 @@ dependencies {
     // runtimeOnly: 런타임에 클래스패스에 포함 (순환 의존 방지)
     runtimeOnly project(':module-user')
     runtimeOnly project(':module-fire')
-    runtimeOnly project(':module-sales')
 }
 
 // core 모듈이 bootJar를 생성 (실행 가능 JAR)

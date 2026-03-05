@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>계정관리</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f5f7fa; margin:0; }
+    .acct-wrap { display:flex; gap:12px; padding:12px; }
+    .acct-left { width:260px; background:#fff; border:1px solid #e5e5e5; border-radius:12px; padding:12px; }
+    .acct-right { flex:1; background:#fff; border:1px solid #e5e5e5; border-radius:12px; padding:12px; }
+    .acct-menu a { display:block; padding:10px 12px; border-radius:10px; text-decoration:none; color:#222; }
+    .acct-menu a.active { background:#f1f3f5; font-weight:700; }
+  </style>
+</head>
+<body>
+<header>
+  <nav class="navbar navbar-expand-lg navbar-dark fireweb-navbar" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="/index.html">
+        <span class="brand-logos" aria-hidden="true">
+          <img src="/images/Kleannara.PNG" alt="" style="height:32px" onerror="this.style.display='none'">
+          <img src="/images/KFMS.PNG" alt="" style="height:32px" onerror="this.style.display='none'">
+        </span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="topNav">
+        <ul class="navbar-nav ms-3">
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/extinguishers.html">소화기 목록</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/hydrants.html">소화전 목록</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/maps/floor.html?buildingName=%EB%B3%B5%EC%A7%80%EA%B4%80&floorName=1%EC%B8%B5">도면</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/qr">QR코드</a></li>
+        </ul>
+        <ul class="navbar-nav ms-auto align-items-center" id="navAccountArea"></ul>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main class="acct-wrap">
+  <section class="acct-left">
+    <div class="fw-bold mb-2">계정</div>
+    <div class="acct-menu">
+      <a href="/account/index.html">내 정보</a>
+      <a class="active" href="/account/users.html">계정관리</a>
+    </div>
+  </section>
+
+  <section class="acct-right">
+    <h4 class="mb-3">계정관리</h4>
+    <div id="msg"></div>
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="border rounded-3 p-3">
+          <div class="fw-bold mb-2">계정 리스트</div>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>아이디</th>
+                  <th>사용자명</th>
+                  <th>권한</th>
+                  <th class="text-center">활성</th>
+                  <th style="width:320px;"></th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="border rounded-3 p-3">
+          <div class="fw-bold mb-2">신규 계정 생성</div>
+          <form id="createForm">
+            <div class="mb-2">
+              <label class="form-label">아이디</label>
+              <input class="form-control" id="cUsername" required />
+            </div>
+            <div class="mb-2">
+              <label class="form-label">사용자명</label>
+              <input class="form-control" id="cDisplayName" />
+            </div>
+            <div class="mb-2">
+              <label class="form-label">초기 비밀번호</label>
+              <input class="form-control" type="password" id="cPassword" required />
+            </div>
+            <div class="mb-2">
+              <label class="form-label">초기 비밀번호 확인</label>
+              <input class="form-control" type="password" id="cConfirmPassword" required />
+            </div>
+            <div class="mb-2">
+              <label class="form-label">권한</label>
+              <select class="form-select" id="cRole">
+                <option value="USER">User</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+            <button class="btn btn-success" type="submit">계정 생성</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const token = localStorage.getItem('fireweb_token');
+  const user = JSON.parse(localStorage.getItem('fireweb_user') || 'null');
+  if (!token) location.href = '/login.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
+  if ((user?.role || '').toUpperCase() !== 'ADMIN') location.href = '/account/index.html';
+
+  function showMsg(text, type) {
+    document.getElementById('msg').innerHTML = text ? `<div class="alert alert-${type}">${text}</div>` : '';
+  }
+
+  async function api(url, opt = {}) {
+    const headers = { ...(opt.headers || {}), Authorization: 'Bearer ' + token };
+    if (opt.body && typeof opt.body === 'object' && !(opt.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      opt.body = JSON.stringify(opt.body);
+    }
+    const res = await fetch(url, { ...opt, headers });
+    if (res.status === 401) {
+      localStorage.removeItem('fireweb_token');
+      localStorage.removeItem('fireweb_user');
+      location.href = '/login.html?returnUrl=' + encodeURIComponent(location.pathname + location.search);
+      return null;
+    }
+    return res;
+  }
+
+  function esc(v) {
+    return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  async function loadUsers() {
+    const r = await api('/api/admin/users');
+    if (!r || !r.ok) {
+      showMsg('계정 목록 조회에 실패했습니다.', 'danger');
+      return;
+    }
+    const j = await r.json();
+    const users = Array.isArray(j?.data) ? j.data : [];
+    const rows = users.sort((a,b)=>String(a.username||'').localeCompare(String(b.username||''), 'ko'))
+      .map(u => `
+      <tr>
+        <td>${esc(u.username)}</td>
+        <td>${esc(u.displayName || '-')}</td>
+        <td>${esc(u.role || 'USER')}</td>
+        <td class="text-center">${u.active ? 'Y' : 'N'}</td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-secondary me-1" onclick="editName(${u.userId},'${esc(u.displayName || '')}')">수정</button>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick="resetPw(${u.userId})">비밀번호</button>
+          <button class="btn btn-sm ${u.active ? 'btn-outline-danger' : 'btn-outline-success'}" onclick="toggleActive(${u.userId},${u.active})">${u.active ? '비활성' : '활성'}</button>
+        </td>
+      </tr>`).join('');
+    document.getElementById('rows').innerHTML = rows || '<tr><td colspan="5" class="text-center text-muted">데이터가 없습니다.</td></tr>';
+  }
+
+  window.editName = async function(userId, currentName) {
+    const name = prompt('새 사용자명을 입력하세요.', currentName || '');
+    if (name === null) return;
+    const r = await api(`/api/admin/users/${userId}/display-name`, { method: 'PATCH', body: { displayName: name } });
+    if (!r || !r.ok) {
+      const t = await r?.text().catch(() => '');
+      showMsg(t || '사용자명 변경에 실패했습니다.', 'danger');
+      return;
+    }
+    showMsg('사용자명이 변경되었습니다.', 'success');
+    loadUsers();
+  };
+
+  window.resetPw = async function(userId) {
+    const pw = prompt('새 비밀번호를 입력하세요.');
+    if (!pw) return;
+    const cpw = prompt('새 비밀번호를 다시 입력하세요.');
+    if (!cpw) return;
+    const r = await api(`/api/admin/users/${userId}/reset-password`, { method: 'POST', body: { newPassword: pw, confirmPassword: cpw } });
+    if (!r || !r.ok) {
+      const t = await r?.text().catch(() => '');
+      showMsg(t || '비밀번호 변경에 실패했습니다.', 'danger');
+      return;
+    }
+    showMsg('비밀번호가 변경되었습니다.', 'success');
+  };
+
+  window.toggleActive = async function(userId, active) {
+    const r = await api(`/api/admin/users/${userId}/active`, { method: 'PATCH', body: { active: !active } });
+    if (!r || !r.ok) {
+      const t = await r?.text().catch(() => '');
+      showMsg(t || '상태 변경에 실패했습니다.', 'danger');
+      return;
+    }
+    showMsg('계정 상태가 변경되었습니다.', 'success');
+    loadUsers();
+  };
+
+  document.getElementById('createForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showMsg('', 'success');
+    const body = {
+      username: document.getElementById('cUsername').value.trim(),
+      displayName: document.getElementById('cDisplayName').value.trim(),
+      password: document.getElementById('cPassword').value,
+      role: document.getElementById('cRole').value
+    };
+    const confirm = document.getElementById('cConfirmPassword').value;
+    if (body.password !== confirm) {
+      showMsg('초기 비밀번호 확인이 일치하지 않습니다.', 'danger');
+      return;
+    }
+    const r = await api('/api/admin/users', { method: 'POST', body });
+    if (!r || !r.ok) {
+      const t = await r?.text().catch(() => '');
+      showMsg(t || '계정 생성에 실패했습니다.', 'danger');
+      return;
+    }
+    showMsg('계정이 생성되었습니다.', 'success');
+    document.getElementById('createForm').reset();
+    loadUsers();
+  });
+
+  loadUsers();
+</script>
+<script src="/js/common-nav.js"></script>
+</body>
+</html>

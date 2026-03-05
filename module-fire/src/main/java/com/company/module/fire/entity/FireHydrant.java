@@ -129,18 +129,6 @@ public class FireHydrant {
         this.locationDescription = locationDescription;
     }
 
-    /** 좌표만 업데이트 (도면 마커 이동 시 사용) */
-    public void updateCoordinates(BigDecimal x, BigDecimal y) {
-        this.x = x;
-        this.y = y;
-    }
-
-    /** 작동 방식 / 위치 설명만 업데이트 */
-    public void updateOperationDetails(String operationType, String locationDescription) {
-        this.operationType = operationType;
-        this.locationDescription = locationDescription;
-    }
-
     public void updateImagePath(String imagePath) {
         this.imagePath = imagePath;
     }

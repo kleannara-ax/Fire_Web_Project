@@ -76,4 +76,13 @@ public class ExtinguisherInspection {
         this.inspectedByUserId = inspectedByUserId;
         this.inspectedByName = inspectedByName;
     }
+
+    public void updateInspection(LocalDate inspectionDate, boolean isFaulty, String faultReason, String inspectorName) {
+        this.inspectionDate = inspectionDate;
+        this.isFaulty = isFaulty;
+        this.faultReason = isFaulty ? faultReason : null;
+        if (inspectorName != null && !inspectorName.isBlank()) {
+            this.inspectedByName = inspectorName.trim();
+        }
+    }
 }

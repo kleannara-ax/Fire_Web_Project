@@ -13,14 +13,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * Spring Security 핵심 설정
- * <p>
- * - core 모듈에서 전역으로 설정하며, 업무 모듈(module-*)은 수정 불가
- * - JWT Stateless 방식 (기존 ASP.NET Cookie 인증 대체)
- * - Role 기반 인가: ROLE_ADMIN / ROLE_USER
- * - 비밀번호: BCrypt (기존 PBKDF2-SHA256 로직은 module-user에서 마이그레이션 처리)
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -43,47 +35,31 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // REST API이므로 CSRF 비활성화
                 .csrf(AbstractHttpConfigurer::disable)
-
-                // Stateless JWT: 세션 미사용
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // 인증 실패 처리 (401 JSON 응답)
-                .exceptionHandling(ex ->
-                        ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
-
-                // 요청 인가 규칙
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .authorizeHttpRequests(auth -> auth
-                        // 정적 리소스 및 테스트 UI: 모든 접근 허용
-                        .requestMatchers("/", "/index.html", "/*.html", "/favicon.ico",
-                                         "/css/**", "/js/**", "/images/**", "/error").permitAll()
-                        // 인증 API (로그인): 모든 접근 허용
+                        .requestMatchers(
+                                "/", "/index.html", "/*.html", "/favicon.ico",
+                                "/css/**", "/js/**", "/images/**", "/uploads/**", "/error"
+                        ).permitAll()
+                        .requestMatchers("/account/**").permitAll()
+                        .requestMatchers("/maps/**", "/m/**").permitAll()
+                        .requestMatchers("/fire-hydrants/edit.html").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        // QR 코드 이미지 생성: 인증 없이 접근 (QR 스캔 시 이미지 로드)
                         .requestMatchers("/fire-api/qr/image").permitAll()
-                        // 모바일 점검 API: 인증 없이 접근 (QR 스캔 후 바로 접근)
-                        .requestMatchers("/fire-api/minspection/**").permitAll()
-                        // 모바일 점검 HTML 페이지: 인증 없이 접근
-                        .requestMatchers("/qr/**", "/qr", "/minspection/**", "/minspection",
-                                         "/minspection/extinguishers/**", "/minspection/hydrants/**",
-                                         "/minspection/complete").permitAll()
-                        // 도면 화면 HTML 페이지: 인증 없이 서빙 (내부에서 JWT 로그인 오버레이로 처리)
-                        .requestMatchers("/floor", "/floor/").permitAll()
-                        // 도면 API: JWT 인증 필요
-                        .requestMatchers("/fire-api/floor/**").authenticated()
-                        // 관리자 전용 엔드포인트
+                        .requestMatchers("/fire-api/minspection/**").authenticated()
+                        .requestMatchers(
+                                "/minspection/**", "/minspection",
+                                "/minspection/extinguishers/**", "/minspection/hydrants/**",
+                                "/minspection/complete"
+                        ).permitAll()
+                        .requestMatchers("/qr/**", "/qr").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // 소화기/소화전 API: 인증된 사용자
                         .requestMatchers("/fire-api/**").authenticated()
-                        // 영업 모듈 API: 인증된 사용자
-                        .requestMatchers("/sales-api/**").authenticated()
-                        // 나머지 모든 요청: 인증 필요
                         .anyRequest().authenticated()
                 )
-
-                // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 등록
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

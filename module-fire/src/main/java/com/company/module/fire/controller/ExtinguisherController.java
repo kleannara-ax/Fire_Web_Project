@@ -83,6 +83,38 @@ public class ExtinguisherController {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
+    @PatchMapping("/{id}/inspections/{inspectionId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> updateInspectionDate(
+            @PathVariable("id") Long extinguisherId,
+            @PathVariable Long inspectionId,
+            @Valid @RequestBody ExtinguisherInspectionUpdateRequest request) {
+        extinguisherService.updateInspectionDate(
+                extinguisherId,
+                inspectionId,
+                request.getInspectionDate(),
+                Boolean.TRUE.equals(request.getIsFaulty()),
+                request.getFaultReason(),
+                request.getInspectorName());
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @PostMapping("/{id}/inspections")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> addInspection(
+            @PathVariable("id") Long extinguisherId,
+            @Valid @RequestBody ExtinguisherInspectionUpdateRequest request,
+            Principal principal) {
+        extinguisherService.addInspection(
+                extinguisherId,
+                request.getInspectionDate(),
+                Boolean.TRUE.equals(request.getIsFaulty()),
+                request.getFaultReason(),
+                request.getInspectorName() != null ? request.getInspectorName() : principal.getName(),
+                null);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
     /**
      * DELETE /fire-api/extinguishers/{id}
      * 소화기 삭제 (Admin 전용)

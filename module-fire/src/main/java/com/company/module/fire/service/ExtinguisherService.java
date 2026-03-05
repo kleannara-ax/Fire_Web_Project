@@ -20,10 +20,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 소화기 관리 서비스
- * <p>
- * 기존 ASP.NET: Pages/Extinguishers/* 비즈니스 로직
- * - @Transactional은 이 Service 계층에서만 사용
+ * ?뚰솕湲?愿由??쒕퉬?? * <p>
+ * 湲곗〈 ASP.NET: Pages/Extinguishers/* 鍮꾩쫰?덉뒪 濡쒖쭅
+ * - @Transactional? ??Service 怨꾩링?먯꽌留??ъ슜
  */
 @Slf4j
 @Service
@@ -35,14 +34,13 @@ public class ExtinguisherService {
     private final BuildingRepository buildingRepository;
     private final FloorRepository floorRepository;
 
-    /** 최근 점검 이력 최대 보관 건수 */
+    /** 理쒓렐 ?먭? ?대젰 理쒕? 蹂닿? 嫄댁닔 */
     private static final int MAX_INSPECTION_HISTORY = 12;
 
     /**
-     * 소화기 목록 조회 (페이지네이션)
+     * ?뚰솕湲?紐⑸줉 議고쉶 (?섏씠吏?ㅼ씠??
      * <p>
-     * 기존 ASP.NET: IndexModel.OnGetAsync() 대응
-     */
+     * 湲곗〈 ASP.NET: IndexModel.OnGetAsync() ???     */
     @Transactional(readOnly = true)
     public Page<ExtinguisherResponse> getExtinguishers(Long buildingId, Long floorId,
                                                         String keyword, int page, int size) {
@@ -63,12 +61,12 @@ public class ExtinguisherService {
     }
 
     /**
-     * 소화기 상세 조회 (점검 이력 포함)
+     * ?뚰솕湲??곸꽭 議고쉶 (?먭? ?대젰 ?ы븿)
      */
     @Transactional(readOnly = true)
     public ExtinguisherResponse getExtinguisherDetail(Long extinguisherId) {
         Extinguisher e = extinguisherRepository.findById(extinguisherId)
-                .orElseThrow(() -> new ResourceNotFoundException("소화기", extinguisherId));
+                .orElseThrow(() -> new ResourceNotFoundException("Extinguisher", extinguisherId));
 
         ExtinguisherResponse dto = new ExtinguisherResponse(e);
 
@@ -85,30 +83,29 @@ public class ExtinguisherService {
     }
 
     /**
-     * 소화기 저장 (신규 등록 / 수정)
+     * ?뚰솕湲????(?좉퇋 ?깅줉 / ?섏젙)
      * <p>
-     * 기존 ASP.NET: OnPostExtSaveAsync() 대응
-     */
+     * 湲곗〈 ASP.NET: OnPostExtSaveAsync() ???     */
     @Transactional
     public ExtinguisherResponse saveExtinguisher(ExtinguisherSaveRequest req) {
         Building building = buildingRepository.findById(req.getBuildingId())
-                .orElseThrow(() -> new BusinessException("건물 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException("嫄대Ъ ?뺣낫瑜?李얠쓣 ???놁뒿?덈떎."));
         Floor floor = floorRepository.findById(req.getFloorId())
-                .orElseThrow(() -> new BusinessException("층 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException("痢??뺣낫瑜?李얠쓣 ???놁뒿?덈떎."));
 
         Extinguisher entity;
 
         if (req.getExtinguisherId() != null && req.getExtinguisherId() > 0) {
-            // 수정
+            // ?섏젙
             entity = extinguisherRepository.findById(req.getExtinguisherId())
-                    .orElseThrow(() -> new ResourceNotFoundException("소화기", req.getExtinguisherId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Extinguisher", req.getExtinguisherId()));
 
             entity.update(building, floor, null,
                     req.getExtinguisherType(), req.getInstallDate(),
                     req.getReplacementCycleYears(), req.getQuantity(),
                     req.getX(), req.getY(), req.getNote());
         } else {
-            // 신규 등록 - 일련번호 생성
+            // ?좉퇋 ?깅줉 - ?쇰젴踰덊샇 ?앹꽦
             String serialNumber = generateNextSerialNumber();
             entity = Extinguisher.builder()
                     .serialNumber(serialNumber)
@@ -130,29 +127,28 @@ public class ExtinguisherService {
     }
 
     /**
-     * 소화기 점검 등록
+     * ?뚰솕湲??먭? ?깅줉
      * <p>
-     * 기존 ASP.NET: OnPostInspectAsync() 대응
-     * - 오늘 이미 점검한 경우 재점검 불가
-     * - 점검 이력 최근 12건 유지
+     * 湲곗〈 ASP.NET: OnPostInspectAsync() ???     * - ?ㅻ뒛 ?대? ?먭???寃쎌슦 ?ъ젏寃 遺덇?
+     * - ?먭? ?대젰 理쒓렐 12嫄??좎?
      */
     @Transactional
     public void inspect(ExtinguisherInspectRequest req, Long userId, String inspectorName) {
         Long extId = req.getExtinguisherId();
 
         if (req.isFaulty() && (req.getFaultReason() == null || req.getFaultReason().isBlank())) {
-            throw new BusinessException("비정상인 경우 불량 사유가 필요합니다.");
+            throw new BusinessException("鍮꾩젙?곸씤 寃쎌슦 遺덈웾 ?ъ쑀媛 ?꾩슂?⑸땲??");
         }
 
         Extinguisher extinguisher = extinguisherRepository.findById(extId)
-                .orElseThrow(() -> new ResourceNotFoundException("소화기", extId));
+                .orElseThrow(() -> new ResourceNotFoundException("Extinguisher", extId));
 
         LocalDate inspectionDate = req.getInspectionDate() != null
                 ? req.getInspectionDate()
                 : LocalDate.now();
 
         if (inspectionRepository.existsByExtinguisher_ExtinguisherIdAndInspectionDate(extId, inspectionDate)) {
-            throw new BusinessException("오늘 이미 점검을 완료했습니다.");
+            throw new BusinessException("?ㅻ뒛 ?대? ?먭????꾨즺?덉뒿?덈떎.");
         }
 
         ExtinguisherInspection inspection = ExtinguisherInspection.builder()
@@ -166,35 +162,91 @@ public class ExtinguisherService {
 
         inspectionRepository.save(inspection);
 
-        // 최근 12건 초과분 삭제
+        // 理쒓렐 12嫄?珥덇낵遺???젣
         inspectionRepository.trimInspectionsKeepLatest12(extId);
 
         log.info("Extinguisher inspected: extId={}, isFaulty={}, by={}", extId, req.isFaulty(), inspectorName);
     }
 
+    @Transactional
+    public void addInspection(Long extinguisherId, LocalDate inspectionDate, boolean isFaulty,
+                              String faultReason, String inspectorName, Long userId) {
+        if (inspectionDate == null) {
+            throw new BusinessException("점검일은 필수입니다.");
+        }
+        if (isFaulty && (faultReason == null || faultReason.isBlank())) {
+            throw new BusinessException("비정상인 경우 고장 사유가 필요합니다.");
+        }
+        Extinguisher extinguisher = extinguisherRepository.findById(extinguisherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Extinguisher", extinguisherId));
+
+        if (inspectionRepository.existsByExtinguisher_ExtinguisherIdAndInspectionDate(extinguisherId, inspectionDate)) {
+            throw new BusinessException("해당 날짜의 점검 이력이 이미 존재합니다.");
+        }
+
+        ExtinguisherInspection inspection = ExtinguisherInspection.builder()
+                .extinguisher(extinguisher)
+                .inspectionDate(inspectionDate)
+                .isFaulty(isFaulty)
+                .faultReason(faultReason)
+                .inspectedByUserId(userId)
+                .inspectedByName((inspectorName == null || inspectorName.isBlank()) ? "관리자" : inspectorName.trim())
+                .build();
+        inspectionRepository.save(inspection);
+        inspectionRepository.trimInspectionsKeepLatest12(extinguisherId);
+    }
+
+    @Transactional
+    public void updateInspectionDate(Long extinguisherId, Long inspectionId, LocalDate inspectionDate,
+                                     boolean isFaulty, String faultReason, String inspectorName) {
+        if (inspectionDate == null) {
+            throw new BusinessException("점검일은 필수입니다.");
+        }
+        if (isFaulty && (faultReason == null || faultReason.isBlank())) {
+            throw new BusinessException("비정상인 경우 고장 사유가 필요합니다.");
+        }
+
+        ExtinguisherInspection inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new ResourceNotFoundException("점검 이력", inspectionId));
+
+        if (inspection.getExtinguisher() == null
+                || !extinguisherId.equals(inspection.getExtinguisher().getExtinguisherId())) {
+            throw new BusinessException("소화기와 점검 이력이 일치하지 않습니다.");
+        }
+
+        boolean duplicated = inspectionRepository
+                .existsByExtinguisher_ExtinguisherIdAndInspectionDateAndInspectionIdNot(
+                        extinguisherId, inspectionDate, inspectionId);
+        if (duplicated) {
+            throw new BusinessException("해당 날짜의 점검 이력이 이미 존재합니다.");
+        }
+
+        inspection.updateInspection(inspectionDate, isFaulty, faultReason, inspectorName);
+    }
+
     /**
-     * 소화기 삭제 (점검 이력 Cascade Delete)
+     * ?뚰솕湲???젣 (?먭? ?대젰 Cascade Delete)
      */
     @Transactional
     public void deleteExtinguisher(Long extinguisherId) {
         Extinguisher e = extinguisherRepository.findById(extinguisherId)
-                .orElseThrow(() -> new ResourceNotFoundException("소화기", extinguisherId));
+                .orElseThrow(() -> new ResourceNotFoundException("Extinguisher", extinguisherId));
         extinguisherRepository.delete(e);
         log.info("Extinguisher deleted: id={}", extinguisherId);
     }
 
     /**
-     * 이미지 경로 업데이트
+     * ?대?吏 寃쎈줈 ?낅뜲?댄듃
      */
     @Transactional
     public void updateImagePath(Long extinguisherId, String imagePath) {
         Extinguisher e = extinguisherRepository.findById(extinguisherId)
-                .orElseThrow(() -> new ResourceNotFoundException("소화기", extinguisherId));
+                .orElseThrow(() -> new ResourceNotFoundException("Extinguisher", extinguisherId));
         e.updateImagePath(imagePath);
     }
 
     /**
-     * 다음 일련번호 생성 (EXT-000001 형식)
+     * ?ㅼ쓬 ?쇰젴踰덊샇 ?앹꽦 (EXT-000001 ?뺤떇)
      */
     private String generateNextSerialNumber() {
         List<String> allSerials = extinguisherRepository.findAll().stream()

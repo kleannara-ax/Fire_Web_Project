@@ -55,6 +55,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 log.debug("JWT authentication set for user: {}", username);
 
+                // Sliding expiration: mutation 요청 시 새 토큰 발급
+                if (shouldRefreshToken(request.getMethod())) {
+                    String rawRole = (role != null && role.startsWith("ROLE_")) ? role.substring(5) : role;
+                    String refreshed = jwtTokenProvider.generateToken(username, rawRole != null ? rawRole : "USER");
+                    response.setHeader("X-Auth-Token", refreshed);
+                }
+
             } catch (Exception e) {
                 log.warn("JWT authentication failed: {}", e.getMessage());
                 SecurityContextHolder.clearContext();
@@ -73,5 +80,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    private boolean shouldRefreshToken(String method) {
+        if (method == null) return false;
+        return "POST".equalsIgnoreCase(method)
+                || "PUT".equalsIgnoreCase(method)
+                || "PATCH".equalsIgnoreCase(method)
+                || "DELETE".equalsIgnoreCase(method);
     }
 }

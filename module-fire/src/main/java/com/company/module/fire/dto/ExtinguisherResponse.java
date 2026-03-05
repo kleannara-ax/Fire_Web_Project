@@ -71,6 +71,7 @@ public class ExtinguisherResponse {
     public void setInspectionHistory(List<ExtinguisherInspection> list) {
         this.inspections = list.stream()
                 .map(i -> new InspectionRow(
+                        i.getInspectionId(),
                         i.getInspectionDate(),
                         i.getInspectedByName(),
                         i.isFaulty(),
@@ -80,13 +81,15 @@ public class ExtinguisherResponse {
 
     @Getter
     public static class InspectionRow {
+        private final Long inspectionId;
         private final LocalDate inspectionDate;
         private final String inspectorName;
         private final boolean isFaulty;
         private final String faultReason;
 
-        public InspectionRow(LocalDate inspectionDate, String inspectorName,
+        public InspectionRow(Long inspectionId, LocalDate inspectionDate, String inspectorName,
                              boolean isFaulty, String faultReason) {
+            this.inspectionId = inspectionId;
             this.inspectionDate = inspectionDate;
             this.inspectorName = inspectorName;
             this.isFaulty = isFaulty;

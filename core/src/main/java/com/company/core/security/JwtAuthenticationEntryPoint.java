@@ -12,7 +12,9 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
 /**
  * 인증되지 않은 요청에 대한 401 응답 처리
@@ -32,6 +34,25 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
                          HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
         log.warn("Unauthorized request: {} {}", request.getMethod(), request.getRequestURI());
+
+        String uri = Optional.ofNullable(request.getRequestURI()).orElse("/");
+        String query = request.getQueryString();
+        String fullUrl = uri + (query == null || query.isBlank() ? "" : "?" + query);
+
+        String accept = Optional.ofNullable(request.getHeader("Accept")).orElse("");
+        String fetchMode = Optional.ofNullable(request.getHeader("Sec-Fetch-Mode")).orElse("");
+        String fetchDest = Optional.ofNullable(request.getHeader("Sec-Fetch-Dest")).orElse("");
+
+        boolean browserNavigation =
+                accept.contains("text/html")
+                        || "navigate".equalsIgnoreCase(fetchMode)
+                        || "document".equalsIgnoreCase(fetchDest);
+
+        if (browserNavigation) {
+            String returnUrl = URLEncoder.encode(fullUrl, StandardCharsets.UTF_8);
+            response.sendRedirect("/login.html?returnUrl=" + returnUrl);
+            return;
+        }
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);

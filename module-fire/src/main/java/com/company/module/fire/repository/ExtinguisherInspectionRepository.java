@@ -17,6 +17,8 @@ import java.util.Optional;
 public interface ExtinguisherInspectionRepository extends JpaRepository<ExtinguisherInspection, Long> {
 
     boolean existsByExtinguisher_ExtinguisherIdAndInspectionDate(Long extinguisherId, LocalDate date);
+    boolean existsByExtinguisher_ExtinguisherIdAndInspectionDateAndInspectionIdNot(
+            Long extinguisherId, LocalDate date, Long inspectionId);
 
     List<ExtinguisherInspection> findByExtinguisher_ExtinguisherIdOrderByInspectionDateDescInspectionIdDesc(Long extinguisherId, Pageable pageable);
 

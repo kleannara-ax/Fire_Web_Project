@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
@@ -58,8 +58,19 @@
     <div class="mi-title">점검이 완료되었습니다!</div>
     <div class="mi-sub">창을 닫아주세요.</div>
     <div class="mi-cta">
-      <button class="btn-close-page" onclick="window.close()">닫기</button>
+      <button class="btn-close-page" onclick="closeCurrentWindow()">닫기</button>
     </div>
   </div>
+  <script>
+    window.closeCurrentWindow = function () {
+      try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage('close'); } catch {}
+      try { if (window.webkit?.messageHandlers?.closeWindow) window.webkit.messageHandlers.closeWindow.postMessage('close'); } catch {}
+      try { window.open('', '_self'); } catch {}
+      try { window.close(); } catch {}
+      setTimeout(() => {
+        try { window.location.replace('about:blank'); } catch {}
+      }, 150);
+    };
+  </script>
 </body>
 </html>

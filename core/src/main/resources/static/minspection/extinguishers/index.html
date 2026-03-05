@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
@@ -103,7 +103,7 @@
     .markerIcon.selected { width: 24px; height: 24px; filter: drop-shadow(0 0 7px rgba(37,99,235,.95)); }
     .coord { font-size: 12px; color: #555; margin-top: 4px; }
 
-    /* 점검 모달 (fullscreen 스타일) */
+    /* 점검 모달 (하단 시트) */
     #inspectOverlay {
       display: none;
       position: fixed; inset: 0;
@@ -141,7 +141,7 @@
     .btn-confirm { background: #667eea; color: #fff; }
     .btn-cancel { background: #e5e7eb; color: #374151; }
 
-    /* 완료 화면 */
+    /* ?꾨즺 ?붾㈃ */
     #completeView {
       display: none;
       text-align: center;
@@ -170,25 +170,24 @@
   </header>
 
   <main class="m-container">
-    <!-- 기본 뷰 (JS로 채움) -->
+    <!-- 기본 뷰 (JS로 렌더) -->
     <div id="mainView" class="mi-wrap">
       <div class="mi-card">
         <div class="text-center py-3" style="color:#6b7280;">불러오는 중...</div>
       </div>
     </div>
 
-    <!-- 완료 뷰 -->
     <div id="completeView">
       <div class="emoji">✅</div>
-      <div class="ctitle">점검 완료!</div>
+      <div class="ctitle">등록 완료!</div>
       <div class="csub">창을 닫아주세요.</div>
-      <button class="btn-close-page" onclick="window.close()">닫기</button>
+      <button class="btn-close-page" onclick="closeCurrentWindow()">닫기</button>
     </div>
   </main>
 
   <!-- 점검 모달 -->
   <div id="inspectOverlay"></div>
-  <div id="inspectModal">
+  <div id="inspectModal" style="display:none;">
     <div class="modal-title">소화기 점검</div>
     <div class="inspect-info" id="inspectInfo"></div>
     <div>
@@ -211,6 +210,43 @@
 <script>
 (function(){
   const API_BASE = '/fire-api/minspection/extinguishers';
+  const RETURN_URL = location.pathname + location.search;
+  let token = localStorage.getItem('fireweb_token') || localStorage.getItem('fw_token') || '';
+  if (!token) {
+    location.href = '/login.html?returnUrl=' + encodeURIComponent(RETURN_URL);
+    return;
+  }
+
+  function authHeaders(extra) {
+    const base = token ? { Authorization: 'Bearer ' + token } : {};
+    return { ...base, ...(extra || {}) };
+  }
+
+  async function apiFetch(url, opt) {
+    const res = await fetch(url, { ...(opt || {}), headers: authHeaders((opt || {}).headers) });
+    const renewed = res.headers.get('x-access-token');
+    if (renewed) {
+      token = renewed;
+      localStorage.setItem('fireweb_token', renewed);
+      localStorage.setItem('fw_token', renewed);
+    }
+    if (res.status === 401) {
+      location.href = '/login.html?returnUrl=' + encodeURIComponent(RETURN_URL);
+      throw new Error('unauthorized');
+    }
+    return res;
+  }
+
+  // 모바일/웹뷰 환경까지 포함한 닫기 처리
+  window.closeCurrentWindow = function () {
+    try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage('close'); } catch {}
+    try { if (window.webkit?.messageHandlers?.closeWindow) window.webkit.messageHandlers.closeWindow.postMessage('close'); } catch {}
+    try { window.open('', '_self'); } catch {}
+    try { window.close(); } catch {}
+    setTimeout(() => {
+      try { window.location.replace('about:blank'); } catch {}
+    }, 150);
+  };
 
   // URL에서 serial 추출
   const pathParts = window.location.pathname.split('/');
@@ -228,7 +264,7 @@
       mainView.innerHTML = '<div class="mi-card"><div class="mi-err">QR 코드가 올바르지 않습니다.</div></div>';
       return;
     }
-    const res = await fetch(API_BASE + '/by-serial?serial=' + encodeURIComponent(serial));
+    const res = await apiFetch(API_BASE + '/by-serial?serial=' + encodeURIComponent(serial));
     const json = await res.json();
     if (!json || !json.data) {
       mainView.innerHTML = '<div class="mi-card"><div class="mi-err">서버 오류가 발생했습니다.</div></div>';
@@ -242,18 +278,13 @@
     }
   }
 
-  // ======= 미등록 폼 =======
+  // ======= 미등록 =======
   function renderRegisterForm(data) {
-    let buildingOpts = (data.buildings || []).map(b =>
-      `<option value="${b.buildingId}">${escHtml(b.buildingName)}</option>`
-    ).join('');
-    let floorOpts = (data.floors || []).map(f =>
-      `<option value="${f.floorId}">${escHtml(f.floorName)}</option>`
-    ).join('');
+    const mapOptions = Array.isArray(data.mapOptions) ? data.mapOptions : [];
 
     mainView.innerHTML = `
       <div class="mi-card">
-        <div class="mi-title">미등록 소화기</div>
+        <div class="mi-title">소화기 추가</div>
         <div class="mi-sub">ID: ${escHtml(data.serialNumber)}</div>
       </div>
       <div class="mi-card">
@@ -264,14 +295,12 @@
               <label>건물</label>
               <select id="regBuilding">
                 <option value="">-- 건물 선택 --</option>
-                ${buildingOpts}
               </select>
             </div>
             <div>
               <label>층</label>
               <select id="regFloor">
                 <option value="">-- 층 선택 --</option>
-                ${floorOpts}
               </select>
             </div>
           </div>
@@ -292,12 +321,15 @@
               <option value="분말소화기 3kg">분말소화기 3kg</option>
               <option value="분말소화기 20kg">분말소화기 20kg</option>
               <option value="이산화탄소소화기">이산화탄소소화기</option>
-              <option value="할론소화기">할론소화기</option>
             </select>
           </div>
           <div>
             <label>제조일</label>
             <input type="date" id="regDate" value="${today()}" />
+          </div>
+          <div>
+            <label>소화기 사진</label>
+            <input type="file" id="regImage" accept="image/*" capture="environment" />
           </div>
           <div class="mi-actions">
             <button type="submit" class="btn-primary">등록</button>
@@ -306,9 +338,68 @@
       </div>`;
 
     initMap('ext');
+    bindMappableOptions(mapOptions);
     document.getElementById('regForm').addEventListener('submit', submitRegister);
-    document.getElementById('regBuilding').addEventListener('change', () => loadMap());
+    document.getElementById('regBuilding').addEventListener('change', () => onRegBuildingChanged());
     document.getElementById('regFloor').addEventListener('change', () => loadMap());
+  }
+
+  function bindMappableOptions(mapOptions) {
+    const bSel = document.getElementById('regBuilding');
+    const fSel = document.getElementById('regFloor');
+    if (!bSel || !fSel) return;
+
+    const buildingMap = new Map();
+    (mapOptions || []).forEach(o => {
+      const bid = String(o.buildingId || '');
+      if (!bid) return;
+      if (!buildingMap.has(bid)) {
+        buildingMap.set(bid, { buildingId: o.buildingId, buildingName: o.buildingName || '', floors: [] });
+      }
+      buildingMap.get(bid).floors.push({ floorId: o.floorId, floorName: o.floorName || '' });
+    });
+
+    const buildings = Array.from(buildingMap.values());
+    bSel.innerHTML = '<option value="">-- 건물 선택 --</option>' +
+      buildings.map(b => `<option value="${b.buildingId}">${escHtml(b.buildingName)}</option>`).join('');
+    bSel.dataset.mapOptions = JSON.stringify(buildings);
+    onRegBuildingChanged();
+  }
+
+  function onRegBuildingChanged() {
+    const bSel = document.getElementById('regBuilding');
+    const fSel = document.getElementById('regFloor');
+    if (!bSel || !fSel) return;
+
+    let buildings = [];
+    try { buildings = JSON.parse(bSel.dataset.mapOptions || '[]'); } catch {}
+    const selected = buildings.find(b => String(b.buildingId) === String(bSel.value));
+    const floors = selected?.floors || [];
+
+    fSel.innerHTML = '<option value="">-- 층 선택 --</option>' +
+      floors.map(f => `<option value="${f.floorId}">${escHtml(f.floorName)}</option>`).join('');
+
+    if (floors.length) {
+      fSel.value = String(floors[0].floorId);
+      loadMap();
+    }
+  }
+
+  async function uploadImageAfterRegister(extId, file, errEl) {
+    if (!extId || !file) return true;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await apiFetch(API_BASE + '/' + encodeURIComponent(extId) + '/image', { method: 'POST', body: fd });
+      if (!r.ok) {
+        errEl.textContent = '사진 업로드에 실패했습니다. 등록은 완료되었습니다.';
+        return false;
+      }
+      return true;
+    } catch {
+      errEl.textContent = '사진 업로드에 실패했습니다. 등록은 완료되었습니다.';
+      return false;
+    }
   }
 
   async function submitRegister(e) {
@@ -317,6 +408,7 @@
     const floorId = document.getElementById('regFloor').value;
     const type = document.getElementById('regType').value;
     const date = document.getElementById('regDate').value;
+    const imageFile = document.getElementById('regImage')?.files?.[0] || null;
     const x = document.getElementById('inputX').value;
     const y = document.getElementById('inputY').value;
     const errEl = document.getElementById('regErr');
@@ -326,13 +418,13 @@
     if (!floorId) { errEl.textContent = '층을 선택하세요.'; return; }
     if (!x || !y) { errEl.textContent = '도면에서 위치를 선택하세요.'; return; }
 
-    const res = await fetch(API_BASE + '/register', {
+    const res = await apiFetch(API_BASE + '/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         serialNumber: serial,
-        buildingId: parseInt(buildingId),
-        floorId: parseInt(floorId),
+        buildingId: parseInt(buildingId, 10),
+        floorId: parseInt(floorId, 10),
         extinguisherType: type,
         installDate: date,
         x: parseFloat(x),
@@ -343,26 +435,38 @@
     if (!json.ok && json.message) { errEl.textContent = json.message; return; }
     if (json.data?.extinguisherId) {
       extData = { exists: true, extinguisherId: json.data.extinguisherId };
-      openInspectModal(json.data.extinguisherId);
+      await uploadImageAfterRegister(json.data.extinguisherId, imageFile, errEl);
+      showAddCompleted();
     }
   }
 
-  // ======= 등록된 소화기 뷰 =======
+  function showAddCompleted() {
+    const titleEl = document.querySelector('#completeView .ctitle');
+    const subEl = document.querySelector('#completeView .csub');
+    if (titleEl) titleEl.textContent = '추가가 완료되었습니다!';
+    if (subEl) subEl.textContent = '창을 닫아주세요.';
+    document.querySelector('header.m-top').style.display = 'none';
+    mainView.style.display = 'none';
+    completeView.style.display = 'block';
+  }
+
   function renderExistsView(data) {
     mainView.innerHTML = `
       <div class="mi-card">
-        <div class="mi-title">소화기 점검</div>
+        <div class="mi-title">소화기 정보</div>
         <div class="mi-sub">ID: ${escHtml(data.serialNumber || serial)}</div>
         ${data.buildingName ? `<div class="mi-sub">${escHtml(data.buildingName)} ${escHtml(data.floorName || '')}</div>` : ''}
         ${data.extinguisherType ? `<div class="mi-sub">종류: ${escHtml(data.extinguisherType)}</div>` : ''}
       </div>`;
 
-    // 자동으로 점검 모달 열기
-    setTimeout(() => openInspectModal(data.extinguisherId), 200);
+    // 기존 등록된 소화기(QR)인 경우에만 점검창 자동 표시
+    if (data && data.extinguisherId) {
+      setTimeout(() => openInspectModal(data.extinguisherId), 200);
+    }
   }
 
   // ======= 점검 모달 =======
-  function openInspectModal(extId) {
+function openInspectModal(extId) {
     document.querySelector('input[name="inspectResult"][value="ok"]').checked = true;
     document.getElementById('faultReasonWrap').style.display = 'none';
     document.getElementById('faultReasonInput').value = '';
@@ -370,7 +474,7 @@
     inspectModal.style.display = 'block';
 
     // 소화기 정보 로드
-    fetch(API_BASE + '/' + extId)
+    apiFetch(API_BASE + '/' + extId)
       .then(r => r.json())
       .then(json => {
         if (!json.data) return;
@@ -407,19 +511,22 @@
       alert('고장 사유를 입력하세요.');
       return;
     }
-    const res = await fetch(API_BASE + '/' + extId + '/inspect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isFaulty: isBad, faultReason: isBad ? faultReason : null })
-    });
-    if (res.ok) {
-      inspectOverlay.style.display = 'none';
-      inspectModal.style.display = 'none';
-      document.querySelector('header.m-top').style.display = 'none';
-      mainView.style.display = 'none';
-      completeView.style.display = 'block';
-    } else {
-      alert('점검 등록 실패. 다시 시도하세요.');
+    try {
+      const res = await apiFetch(API_BASE + '/' + extId + '/inspect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFaulty: isBad, faultReason: isBad ? faultReason : null })
+      });
+      if (res.ok) {
+        inspectOverlay.style.display = 'none';
+        inspectModal.style.display = 'none';
+        alert('점검이 완료되었습니다.');
+        window.location.replace('/qr');
+        return;
+      }
+      alert('점검 등록에 실패했습니다. 다시 시도하세요.');
+    } catch (e) {
+      alert('점검 등록에 실패했습니다. 다시 시도하세요.');
     }
   }
 
@@ -493,15 +600,17 @@
       }
     }
 
-    mapCanvas.addEventListener('click', (e) => {
-      const rect = mapCanvas.getBoundingClientRect();
-      const px = e.clientX - rect.left, py = e.clientY - rect.top;
-      const f = computeFit(); if (!f) return;
-      const x = ((px - f.ox) / f.w) * 100;
-      const y = ((py - f.oy) / f.h) * 100;
-      selectedPoint = { x, y };
-      document.getElementById('coordX').textContent = x.toFixed(2);
-      document.getElementById('coordY').textContent = y.toFixed(2);
+      mapCanvas.addEventListener('click', (e) => {
+        const rect = mapCanvas.getBoundingClientRect();
+        const px = e.clientX - rect.left, py = e.clientY - rect.top;
+        const f = computeFit(); if (!f) return;
+        const localX = (px - pan.x) / scale;
+        const localY = (py - pan.y) / scale;
+        const x = Math.max(0, Math.min(100, ((localX - f.ox) / f.w) * 100));
+        const y = Math.max(0, Math.min(100, ((localY - f.oy) / f.h) * 100));
+        selectedPoint = { x, y };
+        document.getElementById('coordX').textContent = x.toFixed(2);
+        document.getElementById('coordY').textContent = y.toFixed(2);
       document.getElementById('inputX').value = x.toFixed(2);
       document.getElementById('inputY').value = y.toFixed(2);
       renderMarkers();
@@ -551,7 +660,7 @@
     const bid = parseInt(document.getElementById('regBuilding')?.value || '0', 10);
     const fid = parseInt(document.getElementById('regFloor')?.value || '0', 10);
     if (!bid || !fid) return;
-    const res = await fetch(API_BASE + '/mapdata?buildingId=' + bid + '&floorId=' + fid);
+    const res = await apiFetch(API_BASE + '/mapdata?buildingId=' + bid + '&floorId=' + fid);
     const json = await res.json();
     if (!json.data?.ok) return;
     currentItems = json.data.items || [];
@@ -601,3 +710,8 @@
 </script>
 </body>
 </html>
+
+
+
+
+

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
@@ -128,19 +128,18 @@
     #inspectModal .modal-title { font-size: 18px; font-weight: 900; margin-bottom: 12px; }
     .inspect-info { background: #f9f9f9; border-radius: 12px; padding: 12px; margin-bottom: 14px; font-size: 14px; }
     .inspect-info strong { font-size: 16px; }
-    .radio-group { display: flex; gap: 16px; margin-top: 8px; }
-    .radio-group label { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; cursor: pointer; }
-    .radio-group input[type="radio"] { width: 18px; height: 18px; cursor: pointer; }
-    #faultReasonWrap { margin-top: 12px; display: none; }
-    #faultReasonWrap label { font-weight: 700; font-size: 13px; display: block; margin-bottom: 4px; }
-    #faultReasonInput {
-      width: 100%;
-      padding: 10px 12px;
+    .checklist-wrap { display: grid; gap: 10px; margin-top: 8px; }
+    .check-item {
+      border: 1px solid rgba(0,0,0,.08);
       border-radius: 10px;
-      border: 1px solid rgba(0,0,0,.2);
-      font-size: 15px;
-      resize: vertical;
+      padding: 9px 10px;
+      background: #fff;
     }
+    .check-item .label { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+    .radio-group { display: flex; gap: 14px; }
+    .radio-group label { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .radio-group input[type="radio"] { width: 18px; height: 18px; cursor: pointer; }
+    #faultReasonAuto { margin-top: 10px; color: #b91c1c; font-size: 13px; font-weight: 700; display: none; }
     .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
     .modal-actions button { flex: 1; padding: 13px; border-radius: 12px; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
     .btn-confirm { background: #667eea; color: #fff; }
@@ -183,9 +182,9 @@
 
     <div id="completeView">
       <div class="emoji">✅</div>
-      <div class="ctitle">점검 완료!</div>
+      <div class="ctitle">등록 완료!</div>
       <div class="csub">창을 닫아주세요.</div>
-      <button class="btn-close-page" onclick="window.close()">닫기</button>
+      <button class="btn-close-page" onclick="closeCurrentWindow()">닫기</button>
     </div>
   </main>
 
@@ -195,15 +194,53 @@
     <div class="modal-title">소화전 점검</div>
     <div class="inspect-info" id="inspectInfo"></div>
     <div>
-      <div style="font-weight:700; margin-bottom:8px;">점검 결과</div>
-      <div class="radio-group">
-        <label><input type="radio" name="inspectResult" value="ok" checked /> 정상</label>
-        <label><input type="radio" name="inspectResult" value="bad" /> 비정상</label>
+      <div style="font-weight:700; margin-bottom:8px;">소화전 점검 체크리스트</div>
+      <div class="checklist-wrap" id="hydChecklistWrap">
+        <div class="check-item" data-reason="소화전 함 파손 여부 이상">
+          <div class="label">소화전 함 파손여부 확인</div>
+          <div class="radio-group">
+            <label><input type="radio" name="hydCheckBoxDamage" value="ok" checked /> 정상</label>
+            <label><input type="radio" name="hydCheckBoxDamage" value="bad" /> 비정상</label>
+          </div>
+        </div>
+        <div class="check-item" data-reason="소방호스/노즐 수량 또는 상태 이상">
+          <div class="label">소방호스 2EA, 노즐 1EA 확인</div>
+          <div class="radio-group">
+            <label><input type="radio" name="hydCheckHoseNozzle" value="ok" checked /> 정상</label>
+            <label><input type="radio" name="hydCheckHoseNozzle" value="bad" /> 비정상</label>
+          </div>
+        </div>
+        <div class="check-item" data-reason="소화전 사용방법 부착 상태 이상">
+          <div class="label">소화전 사용방법 부착 확인</div>
+          <div class="radio-group">
+            <label><input type="radio" name="hydCheckManual" value="ok" checked /> 정상</label>
+            <label><input type="radio" name="hydCheckManual" value="bad" /> 비정상</label>
+          </div>
+        </div>
+        <div class="check-item" data-reason="소화전 전면 장애물 적치">
+          <div class="label">소화전 앞 장애물 적치금지</div>
+          <div class="radio-group">
+            <label><input type="radio" name="hydCheckObstacle" value="ok" checked /> 정상</label>
+            <label><input type="radio" name="hydCheckObstacle" value="bad" /> 비정상</label>
+          </div>
+        </div>
+        <div class="check-item" data-reason="소화전 표시등 파손 또는 전원 이상">
+          <div class="label">소화전표시등 파손 및 전원 확인</div>
+          <div class="radio-group">
+            <label><input type="radio" name="hydCheckLightPower" value="ok" checked /> 정상</label>
+            <label><input type="radio" name="hydCheckLightPower" value="bad" /> 비정상</label>
+          </div>
+        </div>
+        <div class="check-item" data-reason="소화전 밸브 파손 또는 누수 발생">
+          <div class="label">소화전 밸브 파손 및 누수 여부 확인</div>
+          <div class="radio-group">
+            <label><input type="radio" name="hydCheckValveLeak" value="ok" checked /> 정상</label>
+            <label><input type="radio" name="hydCheckValveLeak" value="bad" /> 비정상</label>
+          </div>
+        </div>
       </div>
-      <div id="faultReasonWrap">
-        <label>고장 사유 <span style="color:#b91c1c;">(필수)</span></label>
-        <textarea id="faultReasonInput" rows="3" placeholder="비정상인 경우 고장 사유를 입력하세요."></textarea>
-      </div>
+      <input type="hidden" id="faultReasonInput" />
+      <div id="faultReasonAuto"></div>
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" id="btnCancelInspect">취소</button>
@@ -214,6 +251,43 @@
 <script>
 (function(){
   const API_BASE = '/fire-api/minspection/hydrants';
+  const RETURN_URL = location.pathname + location.search;
+  let token = localStorage.getItem('fireweb_token') || localStorage.getItem('fw_token') || '';
+  if (!token) {
+    location.href = '/login.html?returnUrl=' + encodeURIComponent(RETURN_URL);
+    return;
+  }
+
+  function authHeaders(extra) {
+    const base = token ? { Authorization: 'Bearer ' + token } : {};
+    return { ...base, ...(extra || {}) };
+  }
+
+  async function apiFetch(url, opt) {
+    const res = await fetch(url, { ...(opt || {}), headers: authHeaders((opt || {}).headers) });
+    const renewed = res.headers.get('x-access-token');
+    if (renewed) {
+      token = renewed;
+      localStorage.setItem('fireweb_token', renewed);
+      localStorage.setItem('fw_token', renewed);
+    }
+    if (res.status === 401) {
+      location.href = '/login.html?returnUrl=' + encodeURIComponent(RETURN_URL);
+      throw new Error('unauthorized');
+    }
+    return res;
+  }
+
+  // 모바일/웹뷰 환경까지 포함한 닫기 처리
+  window.closeCurrentWindow = function () {
+    try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage('close'); } catch {}
+    try { if (window.webkit?.messageHandlers?.closeWindow) window.webkit.messageHandlers.closeWindow.postMessage('close'); } catch {}
+    try { window.open('', '_self'); } catch {}
+    try { window.close(); } catch {}
+    setTimeout(() => {
+      try { window.location.replace('about:blank'); } catch {}
+    }, 150);
+  };
 
   const pathParts = window.location.pathname.split('/');
   const serial = decodeURIComponent(pathParts[pathParts.length - 1] || '');
@@ -230,7 +304,7 @@
       mainView.innerHTML = '<div class="mi-card"><div class="mi-err">QR 코드가 올바르지 않습니다.</div></div>';
       return;
     }
-    const res = await fetch(API_BASE + '/by-serial?serial=' + encodeURIComponent(serial));
+    const res = await apiFetch(API_BASE + '/by-serial?serial=' + encodeURIComponent(serial));
     const json = await res.json();
     if (!json || !json.data) {
       mainView.innerHTML = '<div class="mi-card"><div class="mi-err">서버 오류가 발생했습니다.</div></div>';
@@ -244,14 +318,25 @@
     }
   }
 
-  // ======= 미등록 폼 =======
+  // ======= 미등록 =======
   function renderRegisterForm(data) {
-    let buildingOpts = (data.buildings || []).map(b =>
-      `<option value="${b.buildingId}">${escHtml(b.buildingName)}</option>`
-    ).join('');
-    let floorOpts = (data.floors || []).map(f =>
-      `<option value="${f.floorId}">${escHtml(f.floorName)}</option>`
-    ).join('');
+    const mapOptions = Array.isArray(data.mapOptions) ? data.mapOptions : [];
+    const allBuildings = Array.isArray(data.buildings) ? data.buildings : [];
+    const allFloors = Array.isArray(data.floors) ? data.floors : [];
+    const outdoorBuilding = allBuildings.find(b => {
+      const n = String(b.buildingName || '').replace(/\s+/g,'').toLowerCase();
+      return n.includes('옥외') || n.includes('outdoor');
+    });
+    const outdoorFloor = allFloors.find(f => {
+      const n = String(f.floorName || '').replace(/\s+/g,'').toLowerCase();
+      return n === '1층' || n === '1f' || n === '1';
+    });
+    const outdoorMeta = {
+      buildingId: outdoorBuilding?.buildingId ?? 99,
+      buildingName: outdoorBuilding?.buildingName ?? '옥외',
+      floorId: outdoorFloor?.floorId ?? 1,
+      floorName: outdoorFloor?.floorName ?? '1층'
+    };
 
     mainView.innerHTML = `
       <div class="mi-card">
@@ -284,14 +369,12 @@
                 <label>건물</label>
                 <select id="regBuilding">
                   <option value="">-- 건물 선택 --</option>
-                  ${buildingOpts}
                 </select>
               </div>
               <div>
                 <label>층</label>
                 <select id="regFloor">
                   <option value="">-- 층 선택 --</option>
-                  ${floorOpts}
                 </select>
               </div>
             </div>
@@ -306,9 +389,7 @@
             <div class="coord">좌표: X <span id="coordX">-</span> / Y <span id="coordY">-</span></div>
           </div>
 
-          <div id="outdoorNote" class="outdoor-note" style="display:none;">
-            🌳 옥외 소화전 - 건물/층/좌표가 자동으로 설정됩니다.
-          </div>
+          <div id="outdoorNote" class="outdoor-note" style="display:none;"></div>
 
           <input type="hidden" id="inputX" />
           <input type="hidden" id="inputY" />
@@ -325,17 +406,77 @@
       </div>`;
 
     initMap();
+    bindHydMappableOptions(mapOptions, outdoorMeta);
 
     const hydTypeEl = document.getElementById('regHydType');
     hydTypeEl.addEventListener('change', () => {
       const isOutdoor = hydTypeEl.value === 'Outdoor';
-      document.getElementById('indoorFields').style.display = isOutdoor ? 'none' : '';
-      document.getElementById('outdoorNote').style.display = isOutdoor ? '' : 'none';
+      const bSel = document.getElementById('regBuilding');
+      const fSel = document.getElementById('regFloor');
+      if (isOutdoor) {
+        if (bSel) {
+          bSel.innerHTML = `<option value="${outdoorMeta.buildingId}">${escHtml(outdoorMeta.buildingName)}</option>`;
+          bSel.value = String(outdoorMeta.buildingId);
+        }
+        if (fSel) {
+          fSel.innerHTML = `<option value="${outdoorMeta.floorId}">${escHtml(outdoorMeta.floorName)}</option>`;
+          fSel.value = String(outdoorMeta.floorId);
+        }
+        if (bSel) bSel.disabled = true;
+        if (fSel) fSel.disabled = true;
+        loadMap();
+      } else {
+        if (bSel) bSel.disabled = false;
+        if (fSel) fSel.disabled = false;
+        bindHydMappableOptions(mapOptions, outdoorMeta);
+      }
     });
+    hydTypeEl.dispatchEvent(new Event('change'));
 
-    document.getElementById('regBuilding').addEventListener('change', () => loadMap());
+    document.getElementById('regBuilding').addEventListener('change', () => onHydRegBuildingChanged());
     document.getElementById('regFloor').addEventListener('change', () => loadMap());
     document.getElementById('regForm').addEventListener('submit', submitRegister);
+  }
+
+  function bindHydMappableOptions(mapOptions, outdoorMeta) {
+    const bSel = document.getElementById('regBuilding');
+    const fSel = document.getElementById('regFloor');
+    if (!bSel || !fSel) return;
+
+    const buildingMap = new Map();
+    (mapOptions || []).forEach(o => {
+      const bid = String(o.buildingId || '');
+      if (!bid) return;
+      if (!buildingMap.has(bid)) {
+        buildingMap.set(bid, { buildingId: o.buildingId, buildingName: o.buildingName || '', floors: [] });
+      }
+      buildingMap.get(bid).floors.push({ floorId: o.floorId, floorName: o.floorName || '' });
+    });
+
+    const buildings = Array.from(buildingMap.values());
+    bSel.innerHTML = '<option value="">-- 건물 선택 --</option>' +
+      buildings.map(b => `<option value="${b.buildingId}">${escHtml(b.buildingName)}</option>`).join('');
+    bSel.dataset.mapOptions = JSON.stringify(buildings);
+    onHydRegBuildingChanged();
+  }
+
+  function onHydRegBuildingChanged() {
+    const bSel = document.getElementById('regBuilding');
+    const fSel = document.getElementById('regFloor');
+    if (!bSel || !fSel) return;
+
+    let buildings = [];
+    try { buildings = JSON.parse(bSel.dataset.mapOptions || '[]'); } catch {}
+    const selected = buildings.find(b => String(b.buildingId) === String(bSel.value));
+    const floors = selected?.floors || [];
+
+    fSel.innerHTML = '<option value="">-- 층 선택 --</option>' +
+      floors.map(f => `<option value="${f.floorId}">${escHtml(f.floorName)}</option>`).join('');
+
+    if (floors.length) {
+      fSel.value = String(floors[0].floorId);
+      loadMap();
+    }
   }
 
   async function submitRegister(e) {
@@ -348,22 +489,17 @@
 
     let buildingId = null, floorId = null, x = null, y = null;
 
-    if (hydType === 'Outdoor') {
-      buildingId = 99;
-      floorId = 1;
-    } else {
-      buildingId = parseInt(document.getElementById('regBuilding').value || '0', 10);
-      floorId = parseInt(document.getElementById('regFloor').value || '0', 10);
-      const xVal = document.getElementById('inputX').value;
-      const yVal = document.getElementById('inputY').value;
-      if (!buildingId) { errEl.textContent = '건물을 선택하세요.'; return; }
-      if (!floorId) { errEl.textContent = '층을 선택하세요.'; return; }
-      if (!xVal || !yVal) { errEl.textContent = '도면에서 위치를 선택하세요.'; return; }
-      x = parseFloat(xVal);
-      y = parseFloat(yVal);
-    }
+    buildingId = parseInt(document.getElementById('regBuilding').value || '0', 10);
+    floorId = parseInt(document.getElementById('regFloor').value || '0', 10);
+    const xVal = document.getElementById('inputX').value;
+    const yVal = document.getElementById('inputY').value;
+    if (!buildingId) { errEl.textContent = '건물을 선택하세요.'; return; }
+    if (!floorId) { errEl.textContent = '층을 선택하세요.'; return; }
+    if (!xVal || !yVal) { errEl.textContent = '도면에서 위치를 선택하세요.'; return; }
+    x = parseFloat(xVal);
+    y = parseFloat(yVal);
 
-    const res = await fetch(API_BASE + '/register', {
+    const res = await apiFetch(API_BASE + '/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -381,11 +517,17 @@
     if (!json.ok && json.message) { errEl.textContent = json.message; return; }
     if (json.data?.hydrantId) {
       hydData = { exists: true, hydrantId: json.data.hydrantId };
-      openInspectModal(json.data.hydrantId);
+      renderExistsView({
+        serialNumber: serial,
+        hydrantType: hydType,
+        operationType: opType,
+        buildingName: document.getElementById('regBuilding')?.selectedOptions?.[0]?.textContent || '',
+        floorName: document.getElementById('regFloor')?.selectedOptions?.[0]?.textContent || '',
+        locationDescription: location || ''
+      });
     }
   }
 
-  // ======= 등록된 소화전 뷰 =======
   function renderExistsView(data) {
     const isOutdoor = (data.hydrantType || '').toLowerCase() === 'outdoor';
     const locationLine = isOutdoor ? '옥외' : escHtml(data.buildingName || '-') + ' ' + escHtml(data.floorName || '');
@@ -393,25 +535,50 @@
 
     mainView.innerHTML = `
       <div class="mi-card">
-        <div class="mi-title">소화전 점검</div>
+        <div class="mi-title">소화전 정보</div>
         <div class="mi-sub">ID: ${escHtml(data.serialNumber || serial)}</div>
         <div class="mi-sub">위치: ${locationLine}</div>
         <div class="mi-sub">작동: ${opText}</div>
         ${data.locationDescription ? `<div class="mi-sub">상세: ${escHtml(data.locationDescription)}</div>` : ''}
       </div>`;
 
-    setTimeout(() => openInspectModal(data.hydrantId), 200);
+    // 기존 등록된 소화전(QR)인 경우 점검창 자동 표시
+    if (data && data.hydrantId) {
+      setTimeout(() => openInspectModal(data.hydrantId), 200);
+    }
   }
 
   // ======= 점검 모달 =======
-  function openInspectModal(hydId) {
-    document.querySelector('input[name="inspectResult"][value="ok"]').checked = true;
-    document.getElementById('faultReasonWrap').style.display = 'none';
-    document.getElementById('faultReasonInput').value = '';
+  function collectChecklistResult() {
+    const reasons = [];
+    document.querySelectorAll('#hydChecklistWrap .check-item').forEach(item => {
+      const checked = item.querySelector('input[type="radio"]:checked');
+      if (checked && checked.value === 'bad') {
+        const reason = item.getAttribute('data-reason') || '';
+        if (reason) reasons.push(reason);
+      }
+    });
+    return { isFaulty: reasons.length > 0, faultReason: reasons.join(', ') };
+  }
+
+  function updateChecklistReason() {
+    const result = collectChecklistResult();
+    const input = document.getElementById('faultReasonInput');
+    if (input) input.value = result.faultReason;
+    const auto = document.getElementById('faultReasonAuto');
+    if (auto) {
+      auto.style.display = result.isFaulty ? 'block' : 'none';
+      auto.textContent = result.isFaulty ? ('자동 고장 사유: ' + result.faultReason) : '';
+    }
+  }
+
+function openInspectModal(hydId) {
+    document.querySelectorAll('#hydChecklistWrap input[type="radio"][value="ok"]').forEach(r => r.checked = true);
+    updateChecklistReason();
     inspectOverlay.style.display = 'block';
     inspectModal.style.display = 'block';
 
-    fetch(API_BASE + '/' + hydId)
+    apiFetch(API_BASE + '/' + hydId)
       .then(r => r.json())
       .then(json => {
         if (!json.data) return;
@@ -420,8 +587,8 @@
         const locationLine = isOutdoor ? '옥외' : escHtml(d.buildingName || '-') + ' ' + escHtml(d.floorName || '');
         const opText = (d.operationType || '').toLowerCase() === 'auto' ? '자동' : '수동';
         const lastInspect = d.lastInspectionDate
-          ? `<br><span style="color:#6b7280;font-size:12px;">최종 점검: ${d.lastInspectionDate} (${d.lastInspectorName || '-'})</span>`
-          : '<br><span style="color:#6b7280;font-size:12px;">최초 점검</span>';
+          ? `<br><span style="color:#6b7280;font-size:12px;">최근 점검일: ${d.lastInspectionDate} (${d.lastInspectorName || '-'})</span>`
+          : '<br><span style="color:#6b7280;font-size:12px;">점검 이력 없음</span>';
         document.getElementById('inspectInfo').innerHTML =
           `<strong>${escHtml(d.serialNumber)}</strong>
            <br>위치: ${locationLine} / ${opText}
@@ -437,33 +604,30 @@
     inspectModal.style.display = 'none';
   });
 
-  document.querySelectorAll('input[name="inspectResult"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      const isBad = document.querySelector('input[name="inspectResult"]:checked').value === 'bad';
-      document.getElementById('faultReasonWrap').style.display = isBad ? 'block' : 'none';
-    });
+  document.querySelectorAll('#hydChecklistWrap input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', updateChecklistReason);
   });
 
   async function confirmInspect(hydId) {
-    const isBad = document.querySelector('input[name="inspectResult"]:checked').value === 'bad';
-    const faultReason = document.getElementById('faultReasonInput').value.trim();
-    if (isBad && !faultReason) {
-      alert('고장 사유를 입력하세요.');
-      return;
-    }
-    const res = await fetch(API_BASE + '/' + hydId + '/inspect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isFaulty: isBad, faultReason: isBad ? faultReason : null })
-    });
-    if (res.ok) {
-      inspectOverlay.style.display = 'none';
-      inspectModal.style.display = 'none';
-      document.querySelector('header.m-top').style.display = 'none';
-      mainView.style.display = 'none';
-      completeView.style.display = 'block';
-    } else {
-      alert('점검 등록 실패. 다시 시도하세요.');
+    const result = collectChecklistResult();
+    const isBad = result.isFaulty;
+    const faultReason = result.faultReason;
+    try {
+      const res = await apiFetch(API_BASE + '/' + hydId + '/inspect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFaulty: isBad, faultReason: isBad ? faultReason : null })
+      });
+      if (res.ok) {
+        inspectOverlay.style.display = 'none';
+        inspectModal.style.display = 'none';
+        alert('점검이 완료되었습니다.');
+        window.location.replace('/qr');
+        return;
+      }
+      alert('점검 등록에 실패했습니다. 다시 시도해 주세요.');
+    } catch (e) {
+      alert('점검 등록에 실패했습니다. 다시 시도해 주세요.');
     }
   }
 
@@ -472,7 +636,13 @@
   const pointers = new Map();
   let pinchStartDist = null, pinchStartScale = 1, pinchMidStart = { x: 0, y: 0 };
   let currentItems = [], selectedPoint = null;
-  const HYD_ICON_URL = '/images/indoorfirehydrant.PNG';
+  const HYD_IN_ICON_URL = '/images/indoorfirehydrant.PNG';
+  const HYD_OUT_ICON_URL = '/images/outdoorfirehydrant.PNG';
+
+  function currentHydIconUrl() {
+    const t = document.getElementById('regHydType')?.value || 'Indoor';
+    return t === 'Outdoor' ? HYD_OUT_ICON_URL : HYD_IN_ICON_URL;
+  }
 
   function initMap() {
     setTimeout(() => {
@@ -517,7 +687,7 @@
           m.style.width = size + 'px'; m.style.height = size + 'px';
           m.style.left = (f.ox + f.w * (it.x / 100)) + 'px';
           m.style.top = (f.oy + f.h * (it.y / 100)) + 'px';
-          m.innerHTML = `<img src="${HYD_ICON_URL}" alt="">`;
+          m.innerHTML = `<img src="${currentHydIconUrl()}" alt="">`;
           markerLayer.appendChild(m);
         });
         if (selectedPoint) {
@@ -527,7 +697,7 @@
           sel.style.width = size + 'px'; sel.style.height = size + 'px';
           sel.style.left = (f.ox + f.w * (selectedPoint.x / 100)) + 'px';
           sel.style.top = (f.oy + f.h * (selectedPoint.y / 100)) + 'px';
-          sel.innerHTML = `<img src="${HYD_ICON_URL}" alt="">`;
+          sel.innerHTML = `<img src="${currentHydIconUrl()}" alt="">`;
           markerLayer.appendChild(sel);
         }
       }
@@ -536,7 +706,10 @@
         const rect = mapCanvas.getBoundingClientRect();
         const px = e.clientX - rect.left, py = e.clientY - rect.top;
         const f = computeFit(); if (!f) return;
-        const x = ((px - f.ox) / f.w) * 100, y = ((py - f.oy) / f.h) * 100;
+        const localX = (px - pan.x) / scale;
+        const localY = (py - pan.y) / scale;
+        const x = Math.max(0, Math.min(100, ((localX - f.ox) / f.w) * 100));
+        const y = Math.max(0, Math.min(100, ((localY - f.oy) / f.h) * 100));
         selectedPoint = { x, y };
         document.getElementById('coordX').textContent = x.toFixed(2);
         document.getElementById('coordY').textContent = y.toFixed(2);
@@ -590,7 +763,7 @@
     const bid = parseInt(document.getElementById('regBuilding')?.value || '0', 10);
     const fid = parseInt(document.getElementById('regFloor')?.value || '0', 10);
     if (!bid || !fid) return;
-    const res = await fetch(API_BASE + '/mapdata?buildingId=' + bid + '&floorId=' + fid);
+    const res = await apiFetch(API_BASE + '/mapdata?buildingId=' + bid + '&floorId=' + fid);
     const json = await res.json();
     if (!json.data?.ok) return;
     currentItems = json.data.items || [];
@@ -608,3 +781,9 @@
 </script>
 </body>
 </html>
+
+
+
+
+
+

@@ -84,8 +84,10 @@
     .qr-card.hyd-card .qr-meta .id { font-size: 17px; }
 
     .qr-empty { padding: 12px; background: #f8f9fa; border-radius: 12px; color: #666; }
+    body.modal-open { overflow: hidden !important; padding-right: 0 !important; }
 
     #fwToast { position: fixed; top: 16px; right: 16px; z-index: 2000; }
+    #qrDetailsFrame { width: 100%; height: min(90vh, 1200px); border: 0; display: block; background: transparent; }
 
     @media print {
       @page { size: A4; margin: 10mm; }
@@ -126,8 +128,8 @@
         <ul class="navbar-nav ms-3">
           <li class="nav-item"><a class="nav-link fw-semibold" href="/extinguishers.html">소화기 목록</a></li>
           <li class="nav-item"><a class="nav-link fw-semibold" href="/hydrants.html">소화전 목록</a></li>
-          <li class="nav-item"><a class="nav-link fw-semibold" href="/index.html">도면</a></li>
-          <li class="nav-item"><a class="nav-link fw-semibold active" href="/qr/index.html">QR코드</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold" href="/maps/floor.html?buildingName=%EB%B3%B5%EC%A7%80%EA%B4%80&floorName=1%EC%B8%B5">도면</a></li>
+          <li class="nav-item"><a class="nav-link fw-semibold active" href="/qr">QR코드</a></li>
         </ul>
         <ul class="navbar-nav ms-auto align-items-center" id="navAccountArea"></ul>
       </div>
@@ -138,7 +140,7 @@
 <main class="container-fluid py-3">
   <div class="qr-wrap">
 
-    <!-- 필터 도구 -->
+    <!-- 필터 -->
     <div class="qr-tools">
       <div class="tool">
         <label class="fw-semibold">건물</label>
@@ -164,7 +166,7 @@
         <button type="button" class="btn btn-primary" id="btnFilter">필터 적용</button>
       </div>
       <div class="tool ms-auto">
-        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">QR 인쇄</button>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">필터된 QR 인쇄</button>
       </div>
     </div>
 
@@ -202,17 +204,22 @@
 <!-- 토스트 -->
 <div id="fwToast"></div>
 
+<!-- QR 클릭 상세 모달 -->
+<div class="modal fade" id="qrDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:min(96vw,1600px);">
+    <div class="modal-content border-0 bg-transparent shadow-none">
+      <div class="modal-body p-0 bg-transparent">
+        <iframe id="qrDetailsFrame" title="상세" allowtransparency="true"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function(){
   const API_BASE = '/fire-api';
-  let token = localStorage.getItem('fireweb_token') || '';
-
-  // 토큰 없으면 로그인 페이지로
-  if (!token) {
-    window.location.href = '/login.html?returnUrl=/qr';
-  }
-
+  let token = localStorage.getItem('fireweb_token') || localStorage.getItem('fw_token') || '';
   let buildings = [];
   let floors = [];
 
@@ -223,12 +230,13 @@
 
   async function apiFetch(url, opts = {}) {
     const res = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
-    if (res.status === 401) {
-      localStorage.removeItem('fireweb_token');
-      localStorage.removeItem('fireweb_user');
-      window.location.href = '/login.html?returnUrl=/qr';
-      return null;
+    const renewed = res.headers.get('X-Auth-Token');
+    if (renewed) {
+      token = renewed;
+      localStorage.setItem('fireweb_token', renewed);
+      localStorage.setItem('fw_token', renewed);
     }
+    if (res.status === 401) { window.location.href = '/login.html'; return null; }
     return res.json();
   }
 
@@ -334,7 +342,7 @@
         <div class="qr-meta">
           <div class="id">소화기 ID: ${escHtml(e.serialNumber)}</div>
           <div>건물: ${escHtml(e.buildingName)} ${escHtml(e.floorName)}</div>
-          <div>종류: ${escHtml(e.extinguisherType)}</div>
+          <div>소화기 종류: ${escHtml(e.extinguisherType)}</div>
           <div class="muted">제조일: ${escHtml(e.installDate)}</div>
         </div>
       </div>
@@ -415,19 +423,18 @@
   function renderNav() {
     const area = document.getElementById('navAccountArea');
     if (!area) return;
-    const user = localStorage.getItem('fireweb_user');
-    let displayName = '';
-    if (user) {
-      try { displayName = JSON.parse(user).displayName || JSON.parse(user).username || ''; } catch(e) { displayName = ''; }
-    }
-    if (token && displayName) {
+    const user = localStorage.getItem('fw_user')
+      || (function(){ try { return JSON.parse(localStorage.getItem('fireweb_user') || '{}').displayName; } catch { return ''; }})();
+    if (token && user) {
       area.innerHTML = `<li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle account-link" href="#" data-bs-toggle="dropdown">${escHtml(displayName)}</a>
+        <a class="nav-link dropdown-toggle account-link" href="#" data-bs-toggle="dropdown">${escHtml(user)}</a>
         <ul class="dropdown-menu dropdown-menu-end">
           <li><a class="dropdown-item" href="#" id="btnLogout">로그아웃</a></li>
         </ul>
       </li>`;
       document.getElementById('btnLogout')?.addEventListener('click', () => {
+        localStorage.removeItem('fw_token');
+        localStorage.removeItem('fw_user');
         localStorage.removeItem('fireweb_token');
         localStorage.removeItem('fireweb_user');
         window.location.href = '/login.html';
@@ -440,10 +447,50 @@
   // ======= Events =======
   document.getElementById('btnFilter').addEventListener('click', () => { loadData(); });
 
+  function openQrDetails(type, id) {
+    const frame = document.getElementById('qrDetailsFrame');
+    const modalEl = document.getElementById('qrDetailsModal');
+    if (!frame || !modalEl || !type || !id) return;
+    frame.src = (type === 'ext')
+      ? `/extinguishers.html?embedDetails=1&details=${encodeURIComponent(id)}`
+      : `/hydrants.html?embedDetails=1&details=${encodeURIComponent(id)}`;
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.qr-card[data-qr-type][data-qr-id]');
+    if (!card) return;
+    const type = card.getAttribute('data-qr-type');
+    const id = card.getAttribute('data-qr-id');
+    openQrDetails(type, id);
+  });
+
+  window.addEventListener('message', (ev) => {
+    const msg = String(ev.data || '');
+    if (!/^fireweb:(ext|hydrant)-(details|inspect|edit)-close$/.test(msg)) return;
+    const modalEl = document.getElementById('qrDetailsModal');
+    bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+  });
+
+  document.getElementById('qrDetailsModal')?.addEventListener('hidden.bs.modal', () => {
+    const frame = document.getElementById('qrDetailsFrame');
+    if (frame) frame.src = 'about:blank';
+  });
+
   // ======= Start =======
-  renderNav();
+  window.FireWebNav?.mount?.();
   init();
 })();
 </script>
+<script src="/js/common-nav.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+

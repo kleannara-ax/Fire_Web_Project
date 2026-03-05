@@ -17,6 +17,7 @@ import java.util.Optional;
 public interface FireHydrantInspectionRepository extends JpaRepository<FireHydrantInspection, Long> {
 
     boolean existsByHydrant_HydrantIdAndInspectionDate(Long hydrantId, LocalDate date);
+    boolean existsByHydrant_HydrantIdAndInspectionDateAndInspectionIdNot(Long hydrantId, LocalDate date, Long inspectionId);
 
     List<FireHydrantInspection> findByHydrant_HydrantIdOrderByInspectionDateDescInspectionIdDesc(Long hydrantId, Pageable pageable);
 
