@@ -1,0 +1,16 @@
+* text=auto
+
+*.java text
+*.kt text
+*.groovy text
+*.gradle text
+*.properties text
+*.yml text
+*.yaml text
+*.xml text
+*.json text
+*.md text
+*.sql text
+*.html text
+*.css text
+*.js text

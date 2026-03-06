@@ -1,5 +1,1 @@
 rootProject.name = 'fireweb'
-
-include 'core'
-include 'module-user'
-include 'module-fire'
